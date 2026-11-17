@@ -1,0 +1,3761 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LexiSpace 3D | NLP Tokenizer & 3D Word Embedding Visualizer</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              200: '#c7d2fe',
+              400: '#818cf8',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            },
+            surface: {
+              50: '#f8fafc',
+              100: '#f1f5f9',
+              200: '#e2e8f0',
+              300: '#cbd5e1',
+              400: '#94a3b8',
+              500: '#64748b',
+              600: '#475569',
+              700: '#334155',
+              800: '#1e293b',
+              900: '#0f172a',
+            },
+            accent: {
+              cyan: '#0284c7',
+              emerald: '#059669',
+              amber: '#d97706',
+              rose: '#e11d48',
+              purple: '#7c3aed',
+              violet: '#6d28d9'
+            }
+          },
+          fontFamily: {
+            mono: ['JetBrains Mono', 'Fira Code', 'SF Mono', 'Menlo', 'monospace'],
+            sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+          },
+          boxShadow: {
+            'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.07)',
+            'subtle': '0 2px 10px 0 rgba(0, 0, 0, 0.04)',
+            'glow-indigo': '0 0 25px -4px rgba(99, 102, 241, 0.35)',
+            'glow-cyan': '0 0 25px -4px rgba(2, 132, 199, 0.35)',
+            'glow-emerald': '0 0 25px -4px rgba(5, 150, 105, 0.35)',
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- External Libraries: Three.js, OrbitControls, Chart.js, Lucide Icons -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* Custom Scrollbar - Light & Sleek */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* Modern Light Glassmorphism */
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
+    }
+
+    .glass-card {
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(226, 232, 240, 0.8);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .glass-card:hover {
+      background: rgba(255, 255, 255, 0.95);
+      border-color: rgba(99, 102, 241, 0.35);
+      box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.08);
+      transform: translateY(-1px);
+    }
+
+    /* Dark Mode Glass Overrides */
+    .dark .glass-panel {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+    .dark .glass-card {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .dark .glass-card:hover {
+      background: rgba(30, 41, 59, 0.9);
+      border-color: rgba(129, 140, 248, 0.4);
+    }
+
+    /* Range slider custom styling */
+    input[type=range] {
+      -webkit-appearance: none;
+      background: #e2e8f0;
+      border-radius: 9999px;
+      height: 6px;
+    }
+    .dark input[type=range] {
+      background: #334155;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 16px;
+      width: 16px;
+      border-radius: 50%;
+      background: #4f46e5;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(79, 70, 229, 0.5);
+      border: 2px solid #ffffff;
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Canvas styling */
+    #three-viewport {
+      outline: none;
+      user-select: none;
+      cursor: grab;
+    }
+    #three-viewport:active {
+      cursor: grabbing;
+    }
+    .drag-node-active #three-viewport {
+      cursor: crosshair !important;
+    }
+
+    /* Token badge animation */
+    .token-chip {
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .token-chip:hover {
+      transform: translateY(-2px) scale(1.04);
+      z-index: 10;
+    }
+
+    /* Attention heatmap cell */
+    .heatmap-cell {
+      transition: transform 0.1s ease, filter 0.1s ease;
+    }
+    .heatmap-cell:hover {
+      transform: scale(1.15);
+      z-index: 20;
+      box-shadow: 0 0 10px rgba(79, 70, 229, 0.4);
+    }
+
+    /* Custom Animations */
+    @keyframes pulse-subtle {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.85; transform: scale(1.03); }
+    }
+    .animate-pulse-subtle {
+      animation: pulse-subtle 3s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="bg-surface-50 text-surface-800 min-h-screen flex flex-col font-sans antialiased selection:bg-brand-500/20 selection:text-brand-600 dark:bg-surface-900 dark:text-surface-100 transition-colors duration-200">
+
+  <!-- ================= TOP HEADER & BRAND NAVBAR ================= -->
+  <header class="sticky top-0 z-40 bg-white/90 dark:bg-surface-900/90 backdrop-blur-md border-b border-surface-200/80 dark:border-surface-800/80 px-4 lg:px-6 py-2.5 transition-colors">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      
+      <!-- Logo & App Identity -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 via-accent-cyan to-brand-400 p-0.5 shadow-md shadow-brand-500/20 flex items-center justify-center">
+          <div class="w-full h-full bg-white dark:bg-surface-900 rounded-[10px] flex items-center justify-center">
+            <i data-lucide="network" class="w-5 h-5 text-brand-600 dark:text-brand-400 animate-pulse-subtle"></i>
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-base font-bold tracking-tight bg-gradient-to-r from-surface-900 via-brand-700 to-accent-cyan dark:from-white dark:via-surface-200 dark:to-brand-400 bg-clip-text text-transparent">
+              LexiSpace 3D
+            </h1>
+            <span class="px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase rounded-full bg-brand-50 text-brand-600 border border-brand-200 dark:bg-brand-500/10 dark:text-brand-400 dark:border-brand-500/20">
+              NLP Studio Pro
+            </span>
+          </div>
+          <p class="text-xs text-surface-500 dark:text-surface-400 hidden sm:block">Interactive Tokenizer & 3D Vector Embedding Space</p>
+        </div>
+      </div>
+
+      <!-- Quick Statistics Ticker -->
+      <div class="hidden md:flex items-center space-x-2 bg-surface-100/80 dark:bg-surface-800/80 px-3 py-1.5 rounded-xl border border-surface-200 dark:border-surface-700 text-xs">
+        <div class="flex items-center space-x-1.5 px-2 border-r border-surface-200 dark:border-surface-700">
+          <span class="w-2 h-2 rounded-full bg-accent-cyan animate-pulse"></span>
+          <span class="text-surface-500 dark:text-surface-400 font-medium">Vocab:</span>
+          <span id="header-vocab-count" class="font-mono font-bold text-surface-900 dark:text-white">0</span>
+        </div>
+        <div class="flex items-center space-x-1.5 px-2 border-r border-surface-200 dark:border-surface-700">
+          <span class="text-surface-500 dark:text-surface-400 font-medium">Tokens:</span>
+          <span id="header-token-count" class="font-mono font-bold text-surface-900 dark:text-white">0</span>
+        </div>
+        <div class="flex items-center space-x-1.5 px-2 border-r border-surface-200 dark:border-surface-700">
+          <span class="text-surface-500 dark:text-surface-400 font-medium">3D Nodes:</span>
+          <span id="header-nodes-count" class="font-mono font-bold text-brand-600 dark:text-brand-400">0</span>
+        </div>
+        <div class="flex items-center space-x-1.5 px-2">
+          <span class="text-surface-500 dark:text-surface-400 font-medium">Sim Links:</span>
+          <span id="header-links-count" class="font-mono font-bold text-accent-emerald">0</span>
+        </div>
+      </div>
+
+      <!-- Header Actions & Controls -->
+      <div class="flex items-center space-x-2">
+        <!-- Preset Dropdown -->
+        <select id="preset-selector" class="bg-white dark:bg-surface-800 text-xs font-semibold text-surface-700 dark:text-surface-200 border border-surface-200 dark:border-surface-700 rounded-xl px-2.5 py-1.5 shadow-sm hover:border-surface-300 dark:hover:border-surface-600 focus:outline-none focus:ring-2 focus:ring-brand-500 transition cursor-pointer">
+          <option value="" disabled selected>📂 Load Presets...</option>
+          <option value="cats_dogs">🐾 Cat & Dog Playing (Prompt Default)</option>
+          <option value="ai_ml">🤖 AI & Deep Transformers</option>
+          <option value="nature">🌿 Wildlife & Ecosystems</option>
+          <option value="emotions">🎭 Emotions & Psychology</option>
+          <option value="king_queen">👑 Semantic Analogy: King & Queen</option>
+        </select>
+
+        <!-- Light/Dark Mode Switcher -->
+        <button id="btn-theme-toggle" title="Toggle Light / Dark Theme" class="p-2 rounded-xl bg-white dark:bg-surface-800 text-surface-600 dark:text-surface-300 hover:text-surface-900 dark:hover:text-white border border-surface-200 dark:border-surface-700 shadow-sm transition">
+          <i data-lucide="moon" class="w-4 h-4 hidden dark:block" id="theme-icon-dark"></i>
+          <i data-lucide="sun" class="w-4 h-4 block dark:hidden text-amber-500" id="theme-icon-light"></i>
+        </button>
+
+        <!-- Sound FX Toggle -->
+        <button id="btn-sound-toggle" title="Toggle Synthesizer Feedback" class="p-2 rounded-xl bg-white dark:bg-surface-800 text-surface-600 dark:text-surface-300 hover:text-surface-900 dark:hover:text-white border border-surface-200 dark:border-surface-700 shadow-sm transition">
+          <i data-lucide="volume-2" class="w-4 h-4 text-brand-600 dark:text-brand-400" id="sound-icon"></i>
+        </button>
+
+        <!-- NLP Guide Trigger -->
+        <button id="btn-open-guide" class="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-gradient-to-r from-brand-600 to-accent-cyan hover:from-brand-500 hover:to-cyan-500 text-white shadow-md shadow-brand-500/20 transition">
+          <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">NLP Guide</span>
+        </button>
+
+        <!-- Reset Button -->
+        <button id="btn-reset-all" title="Reset Vocabulary & Viewport" class="p-2 rounded-xl bg-white dark:bg-surface-800 text-surface-400 hover:text-rose-500 dark:hover:text-rose-400 border border-surface-200 dark:border-surface-700 shadow-sm transition">
+          <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ================= SUBHEADER / TAB NAVIGATION ================= -->
+  <div class="bg-white/70 dark:bg-surface-900/70 border-b border-surface-200 dark:border-surface-800 px-4 lg:px-6 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto flex items-center justify-between overflow-x-auto py-1.5 gap-2 scrollbar-none">
+      <nav class="flex items-center space-x-1" id="main-nav-tabs">
+        <button data-tab="tab-studio" class="nav-tab-btn active px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-2 transition bg-brand-50 text-brand-700 border border-brand-200 dark:bg-brand-500/15 dark:text-brand-400 dark:border-brand-500/30">
+          <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i>
+          <span>Studio Dashboard</span>
+        </button>
+        <button data-tab="tab-tokenizer" class="nav-tab-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-2 transition text-surface-500 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-surface-200 dark:hover:bg-surface-800">
+          <i data-lucide="scissors" class="w-3.5 h-3.5"></i>
+          <span>1. Tokenizer Modes</span>
+        </button>
+        <button data-tab="tab-vocab" class="nav-tab-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-2 transition text-surface-500 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-surface-200 dark:hover:bg-surface-800">
+          <i data-lucide="book-marked" class="w-3.5 h-3.5"></i>
+          <span>2. Vocabulary Builder</span>
+        </button>
+        <button data-tab="tab-encoder" class="nav-tab-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-2 transition text-surface-500 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-surface-200 dark:hover:bg-surface-800">
+          <i data-lucide="binary" class="w-3.5 h-3.5"></i>
+          <span>3. Sentence Encoder</span>
+        </button>
+        <button data-tab="tab-similarity" class="nav-tab-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-2 transition text-surface-500 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-surface-200 dark:hover:bg-surface-800">
+          <i data-lucide="scale" class="w-3.5 h-3.5"></i>
+          <span>4. Cosine Similarity</span>
+        </button>
+        <button data-tab="tab-arithmetic" class="nav-tab-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-2 transition text-surface-500 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-surface-200 dark:hover:bg-surface-800">
+          <i data-lucide="calculator" class="w-3.5 h-3.5 text-accent-rose"></i>
+          <span>5. Vector Word Math</span>
+        </button>
+        <button data-tab="tab-heatmap" class="nav-tab-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-2 transition text-surface-500 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-surface-200 dark:hover:bg-surface-800">
+          <i data-lucide="grid" class="w-3.5 h-3.5 text-accent-cyan"></i>
+          <span>6. Attention Matrix</span>
+        </button>
+        <button data-tab="tab-addword" class="nav-tab-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-2 transition text-surface-500 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-surface-200 dark:hover:bg-surface-800">
+          <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-accent-emerald"></i>
+          <span>7. Add Word to 3D</span>
+        </button>
+        <button data-tab="tab-analytics" class="nav-tab-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-2 transition text-surface-500 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-surface-200 dark:hover:bg-surface-800">
+          <i data-lucide="bar-chart-2" class="w-3.5 h-3.5"></i>
+          <span>8. Analytics</span>
+        </button>
+      </nav>
+
+      <!-- Educational Pill Banner -->
+      <div class="hidden xl:flex items-center space-x-1.5 text-[11px] text-brand-700 bg-brand-50 border border-brand-200 dark:text-amber-300 dark:bg-amber-500/10 dark:border-amber-500/20 px-3 py-1 rounded-full whitespace-nowrap font-medium">
+        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-brand-600 dark:text-amber-400"></i>
+        <span>Simulated 3D Embeddings for Educational NLP Visualization</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MAIN SPLIT DASHBOARD LAYOUT ================= -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+    <!-- ================= LEFT COLUMN: CONTROLS & NLP MODULES ================= -->
+    <div class="lg:col-span-5 flex flex-col space-y-4">
+      
+      <!-- ================= TAB: STUDIO DASHBOARD ================= -->
+      <div id="panel-tab-studio" class="tab-panel flex flex-col space-y-4">
+        
+        <!-- Live Tokenizer Input Card -->
+        <div class="glass-panel rounded-2xl p-4 sm:p-5 shadow-glass">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center space-x-2">
+              <span class="p-1.5 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400 border border-brand-200 dark:border-brand-500/30">
+                <i data-lucide="type" class="w-4 h-4"></i>
+              </span>
+              <h2 class="text-sm font-bold text-surface-900 dark:text-white">Sentence Tokenizer</h2>
+            </div>
+            <span class="text-[11px] font-mono text-surface-500 dark:text-surface-400 bg-surface-100 dark:bg-surface-800 px-2 py-0.5 rounded-md">Real-time sync</span>
+          </div>
+
+          <!-- Input Textarea -->
+          <div class="relative">
+            <textarea id="studio-text-input" rows="3" class="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded-xl p-3 text-sm text-surface-900 dark:text-surface-100 placeholder-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition resize-none shadow-sm" placeholder="Enter text to tokenize... e.g. The cat is playing and the dog is playing.">The cat is playing and the dog is playing.</textarea>
+            
+            <div class="flex flex-wrap items-center justify-between mt-2 pt-2 border-t border-surface-200/80 dark:border-surface-800 text-xs gap-2">
+              <div class="flex items-center space-x-3">
+                <label class="flex items-center space-x-1.5 text-surface-700 dark:text-surface-300 cursor-pointer font-medium">
+                  <input type="checkbox" id="chk-lowercase" checked class="rounded border-surface-300 text-brand-600 focus:ring-0">
+                  <span>Lowercase</span>
+                </label>
+                <label class="flex items-center space-x-1.5 text-surface-700 dark:text-surface-300 cursor-pointer font-medium">
+                  <input type="checkbox" id="chk-remove-punct" checked class="rounded border-surface-300 text-brand-600 focus:ring-0">
+                  <span>Clean Punctuation</span>
+                </label>
+              </div>
+              <button id="btn-tokenize-action" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white font-semibold rounded-xl text-xs shadow-md shadow-brand-500/20 transition flex items-center space-x-1">
+                <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+                <span>Tokenize</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Tokenized Chips Visualizer -->
+          <div class="mt-4">
+            <div class="flex items-center justify-between text-xs text-surface-500 dark:text-surface-400 mb-2 font-medium">
+              <span class="text-surface-700 dark:text-surface-300">Generated Token Badges (Word &amp; Token ID):</span>
+              <span id="studio-token-stats" class="text-[11px] font-mono text-brand-600 dark:text-brand-400 font-bold">9 tokens | 6 unique</span>
+            </div>
+            
+            <div id="studio-token-chips" class="flex flex-wrap gap-1.5 p-3 rounded-xl bg-surface-50 dark:bg-surface-950/60 border border-surface-200 dark:border-surface-800 min-h-[56px] max-h-48 overflow-y-auto">
+              <!-- Dynamically populated chips -->
+            </div>
+          </div>
+
+          <!-- Encoded Sequence Array Bar -->
+          <div class="mt-3 bg-surface-100/90 dark:bg-surface-800/80 rounded-xl p-2.5 border border-surface-200 dark:border-surface-700 flex items-center justify-between">
+            <div class="overflow-hidden mr-2">
+              <span class="text-[10px] text-surface-500 dark:text-surface-400 uppercase font-mono block font-semibold">Encoded Sequence Array:</span>
+              <code id="studio-encoded-sequence" class="text-xs font-mono text-brand-600 dark:text-accent-cyan truncate block font-bold">
+                [4, 0, 1, 2, 3, 4, 5, 1, 2]
+              </code>
+            </div>
+            <button id="btn-copy-studio-encoded" class="p-1.5 text-surface-500 hover:text-surface-900 dark:hover:text-white rounded-lg bg-white dark:bg-surface-700 border border-surface-200 dark:border-surface-600 shadow-sm transition flex-shrink-0" title="Copy Encoded Sequence">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2-Column Split: Quick Similarity & Quick Add Word -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          
+          <!-- Mini Cosine Similarity Widget -->
+          <div class="glass-panel rounded-2xl p-4 shadow-glass flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center space-x-1.5">
+                  <i data-lucide="git-commit" class="w-4 h-4 text-accent-cyan"></i>
+                  <h3 class="text-xs font-bold text-surface-900 dark:text-white uppercase tracking-wider">Similarity Tester</h3>
+                </div>
+                <span id="quick-sim-badge" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20">
+                  +0.84
+                </span>
+              </div>
+
+              <!-- Selectors for Word A & Word B -->
+              <div class="space-y-2 text-xs">
+                <div>
+                  <label class="text-[10px] text-surface-500 dark:text-surface-400 block mb-0.5 font-mono font-medium">Word A:</label>
+                  <select id="quick-word-a" class="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded-lg px-2.5 py-1 text-surface-800 dark:text-surface-200 text-xs focus:ring-1 focus:ring-brand-500 focus:outline-none font-medium shadow-sm"></select>
+                </div>
+                <div>
+                  <label class="text-[10px] text-surface-500 dark:text-surface-400 block mb-0.5 font-mono font-medium">Word B:</label>
+                  <select id="quick-word-b" class="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded-lg px-2.5 py-1 text-surface-800 dark:text-surface-200 text-xs focus:ring-1 focus:ring-brand-500 focus:outline-none font-medium shadow-sm"></select>
+                </div>
+              </div>
+
+              <!-- Similarity Meter Bar -->
+              <div class="mt-3">
+                <div class="w-full bg-surface-200 dark:bg-surface-800 rounded-full h-2 overflow-hidden">
+                  <div id="quick-sim-meter" class="bg-gradient-to-r from-accent-rose via-accent-amber to-accent-emerald h-full w-[84%] transition-all duration-300"></div>
+                </div>
+                <div class="flex justify-between text-[9px] text-surface-500 dark:text-surface-400 font-mono mt-1 font-medium">
+                  <span>-1.0 (Opposite)</span>
+                  <span>0.0</span>
+                  <span>+1.0 (Identical)</span>
+                </div>
+              </div>
+            </div>
+
+            <button id="btn-show-full-similarity" class="mt-3 w-full py-1.5 text-center rounded-xl bg-surface-100 hover:bg-surface-200 dark:bg-surface-800 dark:hover:bg-surface-700 text-[11px] font-bold text-brand-600 dark:text-brand-400 border border-surface-200 dark:border-surface-700 transition">
+              View Math Breakdown &rarr;
+            </button>
+          </div>
+
+          <!-- Quick Add Word to 3D -->
+          <div class="glass-panel rounded-2xl p-4 shadow-glass flex flex-col justify-between">
+            <div>
+              <div class="flex items-center space-x-1.5 mb-3">
+                <i data-lucide="plus-square" class="w-4 h-4 text-brand-600 dark:text-brand-400"></i>
+                <h3 class="text-xs font-bold text-surface-900 dark:text-white uppercase tracking-wider">Quick Add Word</h3>
+              </div>
+
+              <div class="space-y-2 text-xs">
+                <div>
+                  <label class="text-[10px] text-surface-500 dark:text-surface-400 block mb-0.5 font-mono font-medium">Word to inject:</label>
+                  <input type="text" id="quick-new-word" placeholder="e.g. robot, kitten" class="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded-lg px-2.5 py-1 text-surface-800 dark:text-surface-200 text-xs focus:ring-1 focus:ring-brand-500 focus:outline-none font-medium shadow-sm">
+                </div>
+                <div>
+                  <label class="text-[10px] text-surface-500 dark:text-surface-400 block mb-0.5 font-mono font-medium">Semantic Cluster:</label>
+                  <select id="quick-new-category" class="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded-lg px-2.5 py-1 text-surface-800 dark:text-surface-200 text-xs focus:ring-1 focus:ring-brand-500 focus:outline-none shadow-sm font-medium">
+                    <option value="Animals">🐾 Animals &amp; Nature</option>
+                    <option value="Technology">🤖 Technology &amp; AI</option>
+                    <option value="Actions">🏃 Actions &amp; Verbs</option>
+                    <option value="Emotions">💖 Emotions &amp; Mind</option>
+                    <option value="Objects">📦 Objects &amp; Nouns</option>
+                    <option value="Grammar">🧩 Grammar &amp; Stopwords</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <button id="btn-quick-add-word" class="mt-3 w-full py-1.5 bg-gradient-to-r from-brand-600 to-accent-cyan hover:from-brand-500 hover:to-cyan-500 text-white font-bold rounded-xl text-xs shadow-md shadow-brand-500/20 transition flex items-center justify-center space-x-1">
+              <i data-lucide="send" class="w-3 h-3"></i>
+              <span>Inject into 3D Space</span>
+            </button>
+          </div>
+
+        </div>
+
+        <!-- Top Frequent Words Table -->
+        <div class="glass-panel rounded-2xl p-4 shadow-glass">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center space-x-1.5">
+              <i data-lucide="list-ordered" class="w-4 h-4 text-accent-emerald"></i>
+              <h3 class="text-xs font-bold text-surface-900 dark:text-white uppercase tracking-wider">Top Frequency Vocabulary</h3>
+            </div>
+            <button id="btn-view-all-vocab" class="text-[11px] text-brand-600 dark:text-brand-400 hover:underline font-bold">
+              View All (<span id="quick-vocab-total">0</span>) &rarr;
+            </button>
+          </div>
+          
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="text-surface-500 dark:text-surface-400 border-b border-surface-200 dark:border-surface-800 text-[10px] uppercase font-mono">
+                  <th class="py-1.5 px-2">ID</th>
+                  <th class="py-1.5 px-2">Word</th>
+                  <th class="py-1.5 px-2">Category</th>
+                  <th class="py-1.5 px-2 text-right">Freq</th>
+                  <th class="py-1.5 px-2 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="quick-vocab-tbody" class="divide-y divide-surface-100 dark:divide-surface-800/60 font-sans">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ================= TAB: 1. ADVANCED TOKENIZER MODES ================= -->
+      <div id="panel-tab-tokenizer" class="tab-panel hidden flex flex-col space-y-4">
+        <div class="glass-panel rounded-2xl p-5 shadow-glass">
+          <div class="flex items-center space-x-2 mb-3">
+            <div class="p-2 rounded-xl bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20">
+              <i data-lucide="scissors" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-surface-900 dark:text-white">Multi-Strategy Tokenizer</h2>
+              <p class="text-xs text-surface-500 dark:text-surface-400">Word-level, Subword (BPE Simulation), and Character-level tokenization</p>
+            </div>
+          </div>
+
+          <!-- Tokenizer Strategy Selector -->
+          <div class="grid grid-cols-3 gap-2 p-1.5 bg-surface-100 dark:bg-surface-800/80 rounded-xl border border-surface-200 dark:border-surface-700 text-xs mb-3 font-semibold">
+            <button class="tok-mode-btn active py-1.5 px-2 rounded-lg bg-white dark:bg-surface-900 text-brand-600 dark:text-brand-400 shadow-sm text-center" data-mode="word">
+              Word Tokens
+            </button>
+            <button class="tok-mode-btn py-1.5 px-2 rounded-lg text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white text-center" data-mode="bpe">
+              Subword (BPE)
+            </button>
+            <button class="tok-mode-btn py-1.5 px-2 rounded-lg text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white text-center" data-mode="char">
+              Character
+            </button>
+          </div>
+
+          <!-- Input Area -->
+          <div class="space-y-3">
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="text-xs font-bold text-surface-700 dark:text-surface-300">Input Sentence:</label>
+                <div class="flex items-center space-x-2 text-[11px]">
+                  <button class="text-brand-600 hover:underline sample-sentence-btn font-medium" data-text="The cat is playing and the dog is playing.">Sample 1</button>
+                  <span class="text-surface-300">•</span>
+                  <button class="text-brand-600 hover:underline sample-sentence-btn font-medium" data-text="Transformers learn deep neural representations of language tokens.">Sample 2</button>
+                  <span class="text-surface-300">•</span>
+                  <button class="text-brand-600 hover:underline sample-sentence-btn font-medium" data-text="A quick brown fox jumps over the lazy dog.">Pangram</button>
+                </div>
+              </div>
+              <textarea id="full-tokenizer-input" rows="4" class="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded-xl p-3 text-sm text-surface-900 dark:text-surface-100 placeholder-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-sm resize-none">The cat is playing and the dog is playing.</textarea>
+            </div>
+
+            <!-- Settings -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 bg-surface-50 dark:bg-surface-900/80 p-3 rounded-xl border border-surface-200 dark:border-surface-800 text-xs font-medium">
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="checkbox" id="full-chk-lowercase" checked class="rounded border-surface-300 text-brand-600 focus:ring-0">
+                <span>Lowercase</span>
+              </label>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="checkbox" id="full-chk-remove-punct" checked class="rounded border-surface-300 text-brand-600 focus:ring-0">
+                <span>Clean Punctuation</span>
+              </label>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="checkbox" id="full-chk-realtime" checked class="rounded border-surface-300 text-brand-600 focus:ring-0">
+                <span>Real-time Parsing</span>
+              </label>
+            </div>
+
+            <div class="flex items-center justify-between pt-1">
+              <button id="btn-clear-tokenizer-input" class="px-3 py-1.5 rounded-xl bg-surface-100 hover:bg-surface-200 dark:bg-surface-800 text-xs font-semibold text-surface-600 dark:text-surface-300 transition">
+                Clear Input
+              </button>
+              <button id="btn-full-tokenize" class="px-4 py-2 bg-gradient-to-r from-brand-600 to-accent-cyan hover:from-brand-500 hover:to-cyan-500 text-white font-bold rounded-xl text-xs shadow-md shadow-brand-500/20 transition flex items-center space-x-1.5">
+                <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                <span>Tokenize &amp; Sync Vocabulary</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Tokenizer Output -->
+          <div class="mt-5 pt-4 border-t border-surface-200 dark:border-surface-800 space-y-4">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-surface-700 dark:text-surface-300">Generated Tokens Stream:</h3>
+                <span class="text-[11px] font-mono text-surface-500" id="full-mode-indicator">Mode: Word Tokens</span>
+              </div>
+              <div id="full-token-chips" class="flex flex-wrap gap-2 p-3.5 rounded-xl bg-surface-50 dark:bg-surface-950/80 border border-surface-200 dark:border-surface-800 min-h-[64px]">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+
+            <!-- Encoded Sequence Box -->
+            <div class="bg-surface-100 dark:bg-surface-800/80 rounded-xl p-3.5 border border-surface-200 dark:border-surface-700">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-xs font-bold uppercase tracking-wider text-brand-700 dark:text-accent-cyan font-mono">Encoded Sequence Array:</span>
+                <button id="btn-copy-full-encoded" class="flex items-center space-x-1 text-xs text-surface-600 hover:text-surface-900 dark:text-surface-300 dark:hover:text-white px-2 py-1 rounded bg-white dark:bg-surface-700 border border-surface-200 dark:border-surface-600 shadow-sm transition">
+                  <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                  <span>Copy</span>
+                </button>
+              </div>
+              <pre id="full-encoded-array-box" class="p-2.5 rounded-lg bg-white dark:bg-surface-950 text-brand-600 dark:text-accent-cyan font-mono text-xs overflow-x-auto border border-surface-200 dark:border-surface-800 font-bold">[4, 0, 1, 2, 3, 4, 5, 1, 2]</pre>
+            </div>
+
+            <!-- Detailed Token Mapping Table -->
+            <div>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-surface-700 dark:text-surface-300 mb-2">Token Mapping Table:</h3>
+              <div class="overflow-x-auto max-h-56 rounded-xl border border-surface-200 dark:border-surface-800 shadow-sm">
+                <table class="w-full text-left text-xs bg-white dark:bg-surface-950/60">
+                  <thead class="bg-surface-100 dark:bg-surface-900 text-surface-500 font-mono text-[10px] uppercase sticky top-0 border-b border-surface-200 dark:border-surface-800">
+                    <tr>
+                      <th class="py-2 px-3">Pos</th>
+                      <th class="py-2 px-3">Token String</th>
+                      <th class="py-2 px-3">Assigned ID</th>
+                      <th class="py-2 px-3">Type</th>
+                    </tr>
+                  </thead>
+                  <tbody id="full-token-table-body" class="divide-y divide-surface-100 dark:divide-surface-800">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= TAB: 2. VOCABULARY BUILDER ================= -->
+      <div id="panel-tab-vocab" class="tab-panel hidden flex flex-col space-y-4">
+        <div class="glass-panel rounded-2xl p-5 shadow-glass">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center space-x-2">
+              <div class="p-2 rounded-xl bg-accent-emerald/10 text-accent-emerald border border-accent-emerald/20">
+                <i data-lucide="book-marked" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h2 class="text-base font-bold text-surface-900 dark:text-white">Vocabulary Dictionary</h2>
+                <p class="text-xs text-surface-500 dark:text-surface-400">Unique token lookup dictionary with frequency &amp; 3D coordinates</p>
+              </div>
+            </div>
+            
+            <div class="flex items-center space-x-1.5">
+              <button id="btn-export-vocab" title="Export Vocabulary JSON" class="p-2 rounded-xl bg-surface-100 hover:bg-surface-200 dark:bg-surface-800 dark:hover:bg-surface-700 text-surface-700 dark:text-surface-200 border border-surface-200 dark:border-surface-700 transition">
+                <i data-lucide="download" class="w-4 h-4"></i>
+              </button>
+              <button id="btn-import-vocab-trigger" title="Import Vocabulary JSON" class="p-2 rounded-xl bg-surface-100 hover:bg-surface-200 dark:bg-surface-800 dark:hover:bg-surface-700 text-surface-700 dark:text-surface-200 border border-surface-200 dark:border-surface-700 transition">
+                <i data-lucide="upload" class="w-4 h-4"></i>
+              </button>
+              <input type="file" id="vocab-file-input" accept=".json" class="hidden">
+            </div>
+          </div>
+
+          <!-- Vocabulary Search Toolbar -->
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 mb-3">
+            <div class="sm:col-span-6 relative">
+              <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-2.5 text-surface-400"></i>
+              <input type="text" id="vocab-search-input" placeholder="Search word or Token ID..." class="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded-xl pl-9 pr-3 py-1.5 text-xs text-surface-800 dark:text-surface-100 placeholder-surface-400 focus:outline-none focus:ring-1 focus:ring-brand-500 shadow-sm">
+            </div>
+            <div class="sm:col-span-3">
+              <select id="vocab-category-filter" class="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded-xl px-2.5 py-1.5 text-xs text-surface-700 dark:text-surface-200 focus:outline-none focus:ring-1 focus:ring-brand-500 shadow-sm font-medium">
+                <option value="ALL">All Categories</option>
+                <option value="Animals">Animals</option>
+                <option value="Technology">Technology</option>
+                <option value="Actions">Actions</option>
+                <option value="Emotions">Emotions</option>
+                <option value="Objects">Objects</option>
+                <option value="Grammar">Grammar</option>
+                <option value="General">General</option>
+              </select>
+            </div>
+            <div class="sm:col-span-3">
+              <select id="vocab-sort-by" class="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded-xl px-2.5 py-1.5 text-xs text-surface-700 dark:text-surface-200 focus:outline-none focus:ring-1 focus:ring-brand-500 shadow-sm font-medium">
+                <option value="id_asc">ID (0 &rarr; N)</option>
+                <option value="freq_desc">Highest Frequency</option>
+                <option value="alpha_asc">Alphabetical (A-Z)</option>
+                <option value="magnitude_desc">Vector Norm</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Vocabulary Stats Ribbon -->
+          <div class="grid grid-cols-3 gap-2 p-2.5 bg-surface-50 dark:bg-surface-900/60 rounded-xl border border-surface-200 dark:border-surface-800 text-center mb-3">
+            <div>
+              <span class="text-[10px] text-surface-500 uppercase font-mono block font-semibold">Total Unique:</span>
+              <span id="vocab-stat-total" class="font-mono text-sm font-bold text-surface-900 dark:text-white">0</span>
+            </div>
+            <div>
+              <span class="text-[10px] text-surface-500 uppercase font-mono block font-semibold">Processed:</span>
+              <span id="vocab-stat-tokens" class="font-mono text-sm font-bold text-brand-600 dark:text-brand-400">0</span>
+            </div>
+            <div>
+              <span class="text-[10px] text-surface-500 uppercase font-mono block font-semibold">Max Freq:</span>
+              <span id="vocab-stat-max-freq" class="font-mono text-sm font-bold text-accent-emerald">0</span>
+            </div>
+          </div>
+
+          <!-- Full Table -->
+          <div class="overflow-x-auto rounded-xl border border-surface-200 dark:border-surface-800 max-h-96 shadow-sm">
+            <table class="w-full text-left text-xs bg-white dark:bg-surface-950/70">
+              <thead class="bg-surface-100 dark:bg-surface-900 text-surface-500 font-mono text-[10px] uppercase sticky top-0 z-10 border-b border-surface-200 dark:border-surface-800">
+                <tr>
+                  <th class="py-2 px-3">Token ID</th>
+                  <th class="py-2 px-3">Word</th>
+                  <th class="py-2 px-3 text-center">Frequency</th>
+                  <th class="py-2 px-3">3D Vector (X, Y, Z)</th>
+                  <th class="py-2 px-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="full-vocab-table-body" class="divide-y divide-surface-100 dark:divide-surface-800/80 font-sans">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Bottom bar -->
+          <div class="flex items-center justify-between mt-3 text-xs text-surface-500">
+            <span id="vocab-showing-count">Showing 0 words</span>
+            <button id="btn-purge-vocab" class="text-rose-600 hover:text-rose-700 font-bold transition flex items-center space-x-1">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              <span>Clear Entire Vocabulary</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= TAB: 3. SENTENCE ENCODER & DECODER ================= -->
+      <div id="panel-tab-encoder" class="tab-panel hidden flex flex-col space-y-4">
+        <div class="glass-panel rounded-2xl p-5 shadow-glass">
+          <div class="flex items-center space-x-2 mb-3">
+            <div class="p-2 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400 border border-brand-200 dark:border-brand-500/20">
+              <i data-lucide="binary" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-surface-900 dark:text-white">Sentence Numerical Encoder</h2>
+              <p class="text-xs text-surface-500 dark:text-surface-400">Map custom sentences to numerical token sequences &amp; handle unknown tokens</p>
+            </div>
+          </div>
+
+          <!-- Encoder Input Area -->
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs font-bold text-surface-700 dark:text-surface-300 block mb-1">Sentence to Encode:</label>
+              <textarea id="encoder-input-text" rows="3" class="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded-xl p-3 text-sm text-surface-900 dark:text-surface-100 placeholder-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 font-sans resize-none shadow-sm" placeholder="Enter text to encode...">The cat is playing with an unknown robot.</textarea>
+            </div>
+
+            <!-- Controls -->
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <label class="flex items-center space-x-2 text-xs text-surface-700 dark:text-surface-300 cursor-pointer font-medium">
+                <input type="checkbox" id="encoder-auto-add-unk" class="rounded border-surface-300 text-brand-600 focus:ring-0">
+                <span>Auto-add unknown words to vocabulary</span>
+              </label>
+
+              <button id="btn-run-encoder" class="px-4 py-2 bg-gradient-to-r from-brand-600 to-accent-cyan hover:from-brand-500 hover:to-cyan-500 text-white font-bold rounded-xl text-xs shadow-md shadow-brand-500/20 transition flex items-center space-x-1.5">
+                <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                <span>Encode Sentence</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Unknown Words Warning Card -->
+          <div id="encoder-unk-alert" class="hidden mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0"></i>
+              <div>
+                <span class="font-bold">Out-Of-Vocabulary (OOV) tokens detected!</span>
+                <p id="encoder-unk-list" class="text-[11px] text-amber-700 dark:text-amber-200/80 mt-0.5">Unknown tokens marked as &lt;UNK&gt;.</p>
+              </div>
+            </div>
+            <button id="btn-add-all-unk-now" class="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-xs shadow transition whitespace-nowrap">
+              Add UNK to Vocab
+            </button>
+          </div>
+
+          <!-- Encoding Results -->
+          <div class="mt-5 pt-4 border-t border-surface-200 dark:border-surface-800 space-y-4">
+            <!-- Final Encoded Sequence Box -->
+            <div class="bg-surface-100 dark:bg-surface-800/80 rounded-xl p-3.5 border border-surface-200 dark:border-surface-700">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-xs font-bold uppercase tracking-wider text-brand-700 dark:text-accent-cyan font-mono">Final Encoded Sequence:</span>
+                <button id="btn-copy-encoded-seq" class="flex items-center space-x-1 text-xs text-surface-600 hover:text-surface-900 dark:text-surface-300 dark:hover:text-white px-2.5 py-1 rounded-lg bg-white dark:bg-surface-700 border border-surface-200 dark:border-surface-600 shadow-sm transition">
+                  <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                  <span>Copy Sequence</span>
+                </button>
+              </div>
+              <pre id="encoder-sequence-output" class="p-3 rounded-lg bg-white dark:bg-surface-950 text-brand-600 dark:text-brand-400 font-mono text-sm overflow-x-auto border border-surface-200 dark:border-surface-800 font-bold tracking-wider">[4, 0, 1, 2, "UNK", "UNK", "UNK", 4, "UNK"]</pre>
+            </div>
+
+            <!-- Mapping Grid -->
+            <div>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-surface-700 dark:text-surface-300 mb-2">Word-to-ID Alignment:</h3>
+              <div id="encoder-mapping-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <!-- Dynamically populated cards -->
+              </div>
+            </div>
+
+            <!-- Reverse Sequence Decoder -->
+            <div class="pt-3 border-t border-surface-200 dark:border-surface-800">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-xs font-bold text-surface-700 dark:text-surface-300">Decode Sequence Back to Text:</span>
+                <span class="text-[10px] text-surface-500 font-mono">IDs array &rarr; Reconstructed Text</span>
+              </div>
+              <div class="flex space-x-2">
+                <input type="text" id="decoder-input-array" placeholder="e.g. [4, 0, 1, 2, 3, 4, 5]" class="flex-1 bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded-xl px-3 py-1.5 text-xs font-mono text-surface-800 dark:text-surface-200 shadow-sm">
+                <button id="btn-run-decoder" class="px-3.5 py-1.5 bg-surface-100 hover:bg-surface-200 dark:bg-surface-800 text-surface-800 dark:text-surface-200 font-bold rounded-xl text-xs border border-surface-200 dark:border-surface-700 transition">
+                  Decode
+                </button>
+              </div>
+              <p id="decoder-output-text" class="mt-2 text-xs font-mono text-surface-700 dark:text-surface-300 p-2.5 rounded-xl bg-surface-50 dark:bg-surface-950/70 border border-surface-200 dark:border-surface-800 italic">Enter Token IDs above to reconstruct text...</p>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= TAB: 4. COSINE SIMILARITY ================= -->
+      <div id="panel-tab-similarity" class="tab-panel hidden flex flex-col space-y-4">
+        <div class="glass-panel rounded-2xl p-5 shadow-glass">
+          <div class="flex items-center space-x-2 mb-3">
+            <div class="p-2 rounded-xl bg-accent-rose/10 text-accent-rose border border-accent-rose/20">
+              <i data-lucide="scale" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-surface-900 dark:text-white">Cosine Similarity Calculator</h2>
+              <p class="text-xs text-surface-500 dark:text-surface-400">Compute vector angle &amp; distance in 3D embedding space</p>
+            </div>
+          </div>
+
+          <!-- Pair Pickers -->
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div>
+              <label class="text-xs font-bold text-surface-700 dark:text-surface-300 block mb-1">Vector A (Word):</label>
+              <select id="sim-select-word-a" class="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded-xl p-2 text-xs text-surface-800 dark:text-surface-200 focus:outline-none focus:ring-1 focus:ring-accent-rose font-medium shadow-sm"></select>
+            </div>
+            <div>
+              <label class="text-xs font-bold text-surface-700 dark:text-surface-300 block mb-1">Vector B (Word):</label>
+              <select id="sim-select-word-b" class="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded-xl p-2 text-xs text-surface-800 dark:text-surface-200 focus:outline-none focus:ring-1 focus:ring-accent-rose font-medium shadow-sm"></select>
+            </div>
+          </div>
+
+          <!-- Primary Metric Card -->
+          <div class="p-4 rounded-xl bg-gradient-to-br from-surface-50 to-surface-100 dark:from-surface-900 dark:to-surface-850 border border-surface-200 dark:border-surface-800 text-center relative overflow-hidden shadow-sm">
+            <span class="text-xs font-mono uppercase text-surface-500 dark:text-surface-400 font-semibold">Cosine Similarity Score cos(A, B):</span>
+            <div class="my-2 flex items-center justify-center space-x-3">
+              <span id="sim-score-display" class="text-4xl font-mono font-extrabold text-brand-600 dark:text-accent-cyan">+0.842</span>
+              <span id="sim-badge-label" class="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-accent-emerald/10 text-accent-emerald border border-accent-emerald/20">
+                High Similarity
+              </span>
+            </div>
+            
+            <!-- Meter Bar -->
+            <div class="w-full bg-surface-200 dark:bg-surface-950 rounded-full h-3 overflow-hidden border border-surface-300 dark:border-surface-800 my-2">
+              <div id="sim-meter-fill" class="h-full bg-gradient-to-r from-accent-rose via-accent-amber to-accent-emerald transition-all duration-300" style="width: 92%;"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-surface-500 font-mono font-medium">
+              <span>-1.0 (Opposite)</span>
+              <span>0.0 (Orthogonal)</span>
+              <span>+1.0 (Collinear)</span>
+            </div>
+            <div class="mt-2 text-xs text-surface-600 dark:text-surface-400">
+              Angular separation: <span id="sim-angular-degrees" class="font-mono text-surface-900 dark:text-white font-bold">32.6°</span>
+            </div>
+          </div>
+
+          <!-- Step-by-Step Math Breakdown -->
+          <div class="mt-4 p-3.5 rounded-xl bg-surface-50 dark:bg-surface-900/90 border border-surface-200 dark:border-surface-800 space-y-2 text-xs font-mono">
+            <div class="flex items-center justify-between text-surface-800 dark:text-surface-300 font-bold pb-1.5 border-b border-surface-200 dark:border-surface-800">
+              <span>Vector Math Breakdown:</span>
+              <span class="text-[10px] text-surface-500 font-normal">Formula: cos(A,B) = (A·B) / (||A|| × ||B||)</span>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+              <div class="p-2 rounded-lg bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-800 shadow-sm">
+                <span class="text-surface-500 block">Vector A:</span>
+                <span id="sim-math-vec-a" class="text-brand-600 dark:text-brand-400 font-bold">[1.20, 3.40, -0.80]</span>
+                <span class="text-surface-500 block mt-1">Norm ||A||:</span>
+                <span id="sim-math-norm-a" class="text-surface-900 dark:text-white font-bold">3.69</span>
+              </div>
+              <div class="p-2 rounded-lg bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-800 shadow-sm">
+                <span class="text-surface-500 block">Vector B:</span>
+                <span id="sim-math-vec-b" class="text-accent-purple font-bold">[1.50, 3.10, -0.40]</span>
+                <span class="text-surface-500 block mt-1">Norm ||B||:</span>
+                <span id="sim-math-norm-b" class="text-surface-900 dark:text-white font-bold">3.47</span>
+              </div>
+            </div>
+
+            <div class="p-2 rounded-lg bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-800 text-[11px] shadow-sm">
+              <span class="text-surface-500">Dot Product (A &middot; B):</span>
+              <span id="sim-math-dot" class="text-accent-emerald font-bold ml-2">10.78</span>
+              <div class="mt-1 pt-1 border-t border-surface-200 dark:border-surface-800 text-[11px] text-surface-600 dark:text-surface-400">
+                Calculation: <span>(10.78) / (3.69 &times; 3.47) = </span><span id="sim-math-result" class="text-brand-600 dark:text-accent-cyan font-bold">+0.842</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top 5 Most Similar Words -->
+          <div class="mt-4">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-surface-700 dark:text-surface-300">
+                Top 5 Similar Words to "<span id="sim-top-target-word" class="text-brand-600 dark:text-brand-400">cat</span>":
+              </h3>
+              <span class="text-[10px] text-surface-500">Ranked by cosine score</span>
+            </div>
+
+            <div id="sim-top-similar-list" class="space-y-1.5">
+              <!-- Dynamically populated top 5 items -->
+            </div>
+          </div>
+
+          <button id="btn-highlight-sim-in-3d" class="mt-4 w-full py-2 bg-white dark:bg-surface-800 hover:bg-surface-100 dark:hover:bg-surface-750 text-xs font-bold text-brand-600 dark:text-accent-cyan border border-brand-200 dark:border-brand-500/30 rounded-xl shadow-sm transition flex items-center justify-center space-x-1.5">
+            <i data-lucide="crosshair" class="w-4 h-4"></i>
+            <span>Highlight Connection Beam in 3D Space</span>
+          </button>
+
+        </div>
+      </div>
+
+      <!-- ================= TAB: 5. SEMANTIC VECTOR WORD MATH ================= -->
+      <div id="panel-tab-arithmetic" class="tab-panel hidden flex flex-col space-y-4">
+        <div class="glass-panel rounded-2xl p-5 shadow-glass">
+          <div class="flex items-center space-x-2 mb-3">
+            <div class="p-2 rounded-xl bg-accent-rose/10 text-accent-rose border border-accent-rose/20">
+              <i data-lucide="calculator" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-surface-900 dark:text-white">Vector Word Math (Analogy Lab)</h2>
+              <p class="text-xs text-surface-500 dark:text-surface-400">Demonstrating semantic vector arithmetic: Word A &minus; Word B + Word C &approx; Target</p>
+            </div>
+          </div>
+
+          <!-- Quick Analogy Presets -->
+          <div class="flex flex-wrap items-center gap-1.5 mb-3 text-[11px]">
+            <span class="text-surface-500 font-medium">Try Presets:</span>
+            <button class="analogy-preset-btn px-2 py-0.5 rounded-lg bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 text-brand-600 dark:text-brand-400 font-semibold border border-surface-200 dark:border-surface-700" data-a="dog" data-b="cat" data-c="playing">
+              dog &minus; cat + playing
+            </button>
+            <button class="analogy-preset-btn px-2 py-0.5 rounded-lg bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 text-brand-600 dark:text-brand-400 font-semibold border border-surface-200 dark:border-surface-700" data-a="king" data-b="man" data-c="woman">
+              king &minus; man + woman
+            </button>
+          </div>
+
+          <!-- Formula Builders -->
+          <div class="grid grid-cols-3 gap-2 text-xs font-mono mb-4">
+            <div>
+              <label class="text-[10px] text-surface-500 font-bold block mb-1">Vector A (+):</label>
+              <select id="arith-word-a" class="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded-xl p-2 text-xs font-bold text-brand-600 shadow-sm"></select>
+            </div>
+            <div>
+              <label class="text-[10px] text-surface-500 font-bold block mb-1">Vector B (&minus;):</label>
+              <select id="arith-word-b" class="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded-xl p-2 text-xs font-bold text-accent-rose shadow-sm"></select>
+            </div>
+            <div>
+              <label class="text-[10px] text-surface-500 font-bold block mb-1">Vector C (+):</label>
+              <select id="arith-word-c" class="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded-xl p-2 text-xs font-bold text-accent-emerald shadow-sm"></select>
+            </div>
+          </div>
+
+          <!-- Arithmetic Result Card -->
+          <div class="p-4 rounded-xl bg-gradient-to-br from-surface-50 to-surface-100 dark:from-surface-900 dark:to-surface-850 border border-surface-200 dark:border-surface-800 shadow-sm">
+            <span class="text-[10px] uppercase font-mono text-surface-500 font-bold block">Synthesized Vector Result V_result = A - B + C:</span>
+            <div id="arith-target-vector" class="text-sm font-mono font-bold text-surface-900 dark:text-white my-1">[0.00, 0.00, 0.00]</div>
+            
+            <div class="mt-3 pt-3 border-t border-surface-200 dark:border-surface-800">
+              <span class="text-[10px] uppercase font-mono text-surface-500 font-bold block">Closest Vocabulary Match in 3D Space:</span>
+              <div class="flex items-center justify-between mt-1">
+                <div class="flex items-center space-x-2">
+                  <span id="arith-match-word" class="text-xl font-extrabold text-brand-600 dark:text-accent-cyan font-sans">queen</span>
+                  <span id="arith-match-score" class="px-2 py-0.5 rounded text-xs font-mono font-bold bg-accent-emerald/10 text-accent-emerald border border-accent-emerald/20">
+                    cos = 0.941
+                  </span>
+                </div>
+                <button id="btn-arith-fly" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold shadow transition flex items-center space-x-1">
+                  <i data-lucide="crosshair" class="w-3.5 h-3.5"></i>
+                  <span>Fly to Node</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ranked Candidates List -->
+          <div class="mt-4">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-surface-700 dark:text-surface-300 mb-2">Nearest Neighbor Words to Target Vector:</h3>
+            <div id="arith-neighbors-list" class="space-y-1.5">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= TAB: 6. TOKEN CO-OCCURRENCE & ATTENTION MATRIX ================= -->
+      <div id="panel-tab-heatmap" class="tab-panel hidden flex flex-col space-y-4">
+        <div class="glass-panel rounded-2xl p-5 shadow-glass">
+          <div class="flex items-center space-x-2 mb-3">
+            <div class="p-2 rounded-xl bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20">
+              <i data-lucide="grid" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-surface-900 dark:text-white">Token Co-occurrence &amp; Attention Heatmap</h2>
+              <p class="text-xs text-surface-500 dark:text-surface-400">Contextual interaction matrix between tokens in the active sentence</p>
+            </div>
+          </div>
+
+          <p class="text-xs text-surface-600 dark:text-surface-400 mb-3">
+            Hover over any cell to inspect the co-occurrence affinity weight between token pairs and highlight their relationship beam in the 3D space:
+          </p>
+
+          <div id="heatmap-container" class="overflow-x-auto p-3 rounded-xl bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-800 shadow-sm flex items-center justify-center min-h-[220px]">
+            <!-- Dynamically populated heatmap table -->
+          </div>
+
+          <div class="mt-3 flex items-center justify-between text-xs text-surface-500 font-mono">
+            <span>Low Interaction (0.0)</span>
+            <div class="w-32 h-2.5 rounded-full bg-gradient-to-r from-surface-200 via-brand-300 to-brand-600 dark:from-surface-800 dark:via-brand-500 dark:to-accent-cyan"></div>
+            <span>High Interaction (1.0)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= TAB: 7. ADD WORD TO 3D ================= -->
+      <div id="panel-tab-addword" class="tab-panel hidden flex flex-col space-y-4">
+        <div class="glass-panel rounded-2xl p-5 shadow-glass">
+          <div class="flex items-center space-x-2 mb-3">
+            <div class="p-2 rounded-xl bg-accent-purple/10 text-accent-purple border border-accent-purple/20">
+              <i data-lucide="plus-circle" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-surface-900 dark:text-white">Manual 3D Node Creator</h2>
+              <p class="text-xs text-surface-500 dark:text-surface-400">Inject words and configure 3D embedding coordinates</p>
+            </div>
+          </div>
+
+          <!-- Add Word Form -->
+          <div class="space-y-3.5">
+            <div>
+              <label class="text-xs font-bold text-surface-700 dark:text-surface-300 block mb-1">Word to Add:</label>
+              <input type="text" id="add-word-input" placeholder="e.g. neuron, universe, kitten..." class="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded-xl p-2.5 text-sm text-surface-900 dark:text-surface-100 placeholder-surface-400 focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium shadow-sm">
+              <p id="add-word-error" class="hidden text-[11px] text-rose-600 mt-1 font-semibold"></p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs font-bold text-surface-700 dark:text-surface-300 block mb-1">Semantic Category:</label>
+                <select id="add-word-category" class="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded-xl p-2 text-xs text-surface-800 dark:text-surface-200 focus:outline-none focus:ring-1 focus:ring-brand-500 shadow-sm font-medium">
+                  <option value="Technology">🤖 Technology &amp; AI</option>
+                  <option value="Animals">🐾 Animals &amp; Nature</option>
+                  <option value="Emotions">💖 Emotions &amp; Mind</option>
+                  <option value="Actions">🏃 Actions &amp; Verbs</option>
+                  <option value="Objects">📦 Objects &amp; Nouns</option>
+                  <option value="Grammar">🧩 Grammar &amp; Stopwords</option>
+                  <option value="General">🌐 General / Abstract</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs font-bold text-surface-700 dark:text-surface-300 block mb-1">Initial Frequency:</label>
+                <input type="number" id="add-word-freq" min="1" value="1" class="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded-xl p-2 text-xs text-surface-800 dark:text-surface-200 focus:outline-none focus:ring-1 focus:ring-brand-500 font-mono shadow-sm">
+              </div>
+            </div>
+
+            <!-- Coordinate Sliders -->
+            <div class="bg-surface-50 dark:bg-surface-900/80 p-3.5 rounded-xl border border-surface-200 dark:border-surface-800 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold uppercase tracking-wider text-surface-700 dark:text-surface-300 font-mono">3D Coordinates (X, Y, Z):</span>
+                <button id="btn-generate-rand-coords" class="text-[11px] text-brand-600 dark:text-brand-400 hover:underline font-bold flex items-center space-x-1">
+                  <i data-lucide="sparkles" class="w-3 h-3"></i>
+                  <span>Auto-Compute</span>
+                </button>
+              </div>
+
+              <!-- Slider X -->
+              <div>
+                <div class="flex justify-between text-xs font-mono text-surface-500 mb-1">
+                  <span class="text-accent-rose font-bold">X Axis:</span>
+                  <span id="slider-x-val" class="text-surface-900 dark:text-white font-bold">0.00</span>
+                </div>
+                <input type="range" id="add-coord-x" min="-10" max="10" step="0.1" value="0" class="w-full">
+              </div>
+
+              <!-- Slider Y -->
+              <div>
+                <div class="flex justify-between text-xs font-mono text-surface-500 mb-1">
+                  <span class="text-accent-emerald font-bold">Y Axis:</span>
+                  <span id="slider-y-val" class="text-surface-900 dark:text-white font-bold">0.00</span>
+                </div>
+                <input type="range" id="add-coord-y" min="-10" max="10" step="0.1" value="0" class="w-full">
+              </div>
+
+              <!-- Slider Z -->
+              <div>
+                <div class="flex justify-between text-xs font-mono text-surface-500 mb-1">
+                  <span class="text-accent-cyan font-bold">Z Axis:</span>
+                  <span id="slider-z-val" class="text-surface-900 dark:text-white font-bold">0.00</span>
+                </div>
+                <input type="range" id="add-coord-z" min="-10" max="10" step="0.1" value="0" class="w-full">
+              </div>
+            </div>
+
+            <!-- Anchor near existing word -->
+            <div>
+              <label class="text-xs font-bold text-surface-700 dark:text-surface-300 block mb-1">Anchor near existing word (optional):</label>
+              <select id="add-word-anchor" class="w-full bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded-xl p-2 text-xs text-surface-800 dark:text-surface-200 focus:outline-none focus:ring-1 focus:ring-brand-500 shadow-sm font-medium">
+                <option value="">None (Use manual coordinates)</option>
+              </select>
+            </div>
+
+            <!-- Submit -->
+            <button id="btn-submit-add-word" class="w-full py-2.5 bg-gradient-to-r from-brand-600 to-accent-purple hover:from-brand-500 hover:to-purple-500 text-white font-bold rounded-xl text-xs shadow-md shadow-brand-500/20 transition flex items-center justify-center space-x-1.5">
+              <i data-lucide="plus-circle" class="w-4 h-4"></i>
+              <span>Inject Word into Vocabulary &amp; 3D Graph</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= TAB: 8. ANALYTICS & CORPUS ================= -->
+      <div id="panel-tab-analytics" class="tab-panel hidden flex flex-col space-y-4">
+        <div class="glass-panel rounded-2xl p-5 shadow-glass">
+          <div class="flex items-center space-x-2 mb-3">
+            <div class="p-2 rounded-xl bg-accent-amber/10 text-accent-amber border border-accent-amber/20">
+              <i data-lucide="bar-chart-2" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-surface-900 dark:text-white">Corpus Metrics &amp; Embeddings Analytics</h2>
+              <p class="text-xs text-surface-500 dark:text-surface-400">Lexical richness, frequency distribution &amp; vector metrics</p>
+            </div>
+          </div>
+
+          <!-- Stats Grid -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
+            <div class="p-2.5 rounded-xl bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-800 text-center shadow-sm">
+              <span class="text-[10px] text-surface-500 uppercase font-mono block font-semibold">Type-Token Ratio:</span>
+              <span id="metric-ttr" class="text-base font-mono font-bold text-brand-600 dark:text-accent-cyan">0.00</span>
+              <span class="text-[9px] text-surface-400 block font-medium">Lexical Diversity</span>
+            </div>
+            <div class="p-2.5 rounded-xl bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-800 text-center shadow-sm">
+              <span class="text-[10px] text-surface-500 uppercase font-mono block font-semibold">Avg Word Len:</span>
+              <span id="metric-avg-len" class="text-base font-mono font-bold text-accent-emerald">0.0</span>
+              <span class="text-[9px] text-surface-400 block font-medium">Characters</span>
+            </div>
+            <div class="p-2.5 rounded-xl bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-800 text-center shadow-sm">
+              <span class="text-[10px] text-surface-500 uppercase font-mono block font-semibold">Avg Vector Norm:</span>
+              <span id="metric-avg-norm" class="text-base font-mono font-bold text-accent-purple">0.00</span>
+              <span class="text-[9px] text-surface-400 block font-medium">Embedding Magnitude</span>
+            </div>
+            <div class="p-2.5 rounded-xl bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-800 text-center shadow-sm">
+              <span class="text-[10px] text-surface-500 uppercase font-mono block font-semibold">Active Edges:</span>
+              <span id="metric-active-edges" class="text-base font-mono font-bold text-accent-amber">0</span>
+              <span class="text-[9px] text-surface-400 block font-medium">In 3D Space</span>
+            </div>
+          </div>
+
+          <!-- Chart.js Container -->
+          <div class="bg-surface-50 dark:bg-surface-900/90 rounded-xl p-3.5 border border-surface-200 dark:border-surface-800 mb-4 shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-xs font-bold text-surface-700 dark:text-surface-300 uppercase tracking-wider font-mono">Word Frequency Distribution (Zipfian View):</h3>
+              <span class="text-[10px] text-surface-500 font-mono">Top 10 Words</span>
+            </div>
+            <div class="h-48 w-full">
+              <canvas id="chart-vocab-frequency"></canvas>
+            </div>
+          </div>
+
+          <!-- Semantic Clusters Breakdown -->
+          <div class="bg-surface-50 dark:bg-surface-900/90 rounded-xl p-3.5 border border-surface-200 dark:border-surface-800 shadow-sm">
+            <h3 class="text-xs font-bold text-surface-700 dark:text-surface-300 uppercase tracking-wider font-mono mb-2">Cluster Distribution:</h3>
+            <div id="analytics-category-pills" class="flex flex-wrap gap-2">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ================= RIGHT COLUMN: INTERACTIVE 3D VIEWPORT ================= -->
+    <div class="lg:col-span-7 flex flex-col h-[650px] lg:h-auto min-h-[580px] relative">
+      
+      <!-- 3D Canvas Container -->
+      <div id="three-container" class="relative w-full h-full rounded-2xl overflow-hidden border border-surface-200 dark:border-surface-800 shadow-xl bg-white dark:bg-surface-950 flex flex-col">
+        
+        <!-- Three.js Canvas -->
+        <canvas id="three-viewport" class="w-full h-full flex-1 block"></canvas>
+
+        <!-- Top Floating Controls Toolbar (Over 3D Canvas) -->
+        <div class="absolute top-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none z-20">
+          
+          <!-- View Angles & Projection Modes -->
+          <div class="flex items-center space-x-1 bg-white/90 dark:bg-surface-900/90 backdrop-blur-md p-1 rounded-xl border border-surface-200 dark:border-surface-700 pointer-events-auto shadow-md">
+            <button id="btn-cam-reset" class="px-2.5 py-1 text-[11px] font-bold text-surface-700 hover:text-brand-600 dark:text-surface-200 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition flex items-center space-x-1" title="Reset Camera to Default Perspective">
+              <i data-lucide="video" class="w-3.5 h-3.5 text-brand-600"></i>
+              <span>Reset</span>
+            </button>
+            <span class="text-surface-300 dark:text-surface-700">|</span>
+            <button id="btn-cam-top" class="px-2 py-1 text-[11px] font-semibold text-surface-600 hover:text-surface-900 dark:text-surface-300 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition" title="Top View (XZ Plane)">
+              Top
+            </button>
+            <button id="btn-cam-front" class="px-2 py-1 text-[11px] font-semibold text-surface-600 hover:text-surface-900 dark:text-surface-300 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition" title="Front View (XY Plane)">
+              Front
+            </button>
+            <button id="btn-cam-iso" class="px-2 py-1 text-[11px] font-semibold text-surface-600 hover:text-surface-900 dark:text-surface-300 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition" title="Isometric Perspective">
+              Iso
+            </button>
+            <span class="text-surface-300 dark:text-surface-700">|</span>
+            <!-- 2D PCA projection toggle -->
+            <button id="btn-toggle-pca" class="px-2 py-1 text-[11px] font-bold text-accent-cyan rounded-lg hover:bg-accent-cyan/10 transition flex items-center space-x-1" title="Toggle 2D Projection Mode">
+              <i data-lucide="layers" class="w-3 h-3"></i>
+              <span id="pca-status-text">3D Space</span>
+            </button>
+          </div>
+
+          <!-- Feature Toggles & Tools -->
+          <div class="flex items-center space-x-1.5 bg-white/90 dark:bg-surface-900/90 backdrop-blur-md p-1 rounded-xl border border-surface-200 dark:border-surface-700 pointer-events-auto shadow-md">
+            
+            <!-- Quick Viewport Search -->
+            <div class="relative hidden sm:block">
+              <i data-lucide="search" class="w-3 h-3 absolute left-2 top-2 text-surface-400"></i>
+              <input type="text" id="viewport-search-input" placeholder="Find in 3D..." class="w-28 pl-6 pr-2 py-0.5 text-[11px] rounded-lg bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 focus:outline-none focus:w-36 transition-all font-medium">
+            </div>
+
+            <!-- Toggle Labels -->
+            <button id="btn-toggle-labels" class="p-1.5 text-surface-600 hover:text-surface-900 dark:text-surface-300 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition" title="Toggle Word Labels">
+              <i data-lucide="tag" class="w-4 h-4 text-brand-600"></i>
+            </button>
+
+            <!-- Toggle Grid -->
+            <button id="btn-toggle-grid" class="p-1.5 text-surface-600 hover:text-surface-900 dark:text-surface-300 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition" title="Toggle Coordinate Grid &amp; Axes">
+              <i data-lucide="grid" class="w-4 h-4 text-accent-emerald"></i>
+            </button>
+
+            <!-- Toggle Auto-Rotate -->
+            <button id="btn-toggle-rotate" class="p-1.5 text-surface-600 hover:text-surface-900 dark:text-surface-300 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition" title="Toggle Auto-Orbit Rotation">
+              <i data-lucide="rotate-cw" class="w-4 h-4 text-accent-cyan"></i>
+            </button>
+
+            <!-- Toggle Drag Mode -->
+            <button id="btn-toggle-drag" class="px-2 py-1 text-[11px] font-bold text-surface-700 dark:text-surface-300 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition flex items-center space-x-1" title="Enable/Disable Direct Node Dragging in 3D">
+              <i data-lucide="hand" class="w-3.5 h-3.5 text-accent-amber"></i>
+              <span id="drag-status-text">Drag: Off</span>
+            </button>
+
+            <!-- Snapshot PNG -->
+            <button id="btn-snapshot-3d" class="p-1.5 text-surface-600 hover:text-surface-900 dark:text-surface-300 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition" title="Download High-Res Snapshot PNG">
+              <i data-lucide="camera" class="w-4 h-4 text-accent-purple"></i>
+            </button>
+
+            <!-- Fullscreen -->
+            <button id="btn-toggle-fullscreen" class="p-1.5 text-surface-600 hover:text-surface-900 dark:text-surface-300 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition" title="Toggle Fullscreen 3D">
+              <i data-lucide="maximize-2" class="w-4 h-4"></i>
+            </button>
+
+          </div>
+        </div>
+
+        <!-- Similarity Threshold Slider (Bottom-Left) -->
+        <div class="absolute bottom-3 left-3 bg-white/90 dark:bg-surface-900/90 backdrop-blur-md p-2.5 rounded-xl border border-surface-200 dark:border-surface-700 shadow-xl pointer-events-auto z-20 w-64">
+          <div class="flex items-center justify-between text-[11px] font-mono text-surface-700 dark:text-surface-300 mb-1">
+            <span class="flex items-center space-x-1 font-bold">
+              <i data-lucide="git-merge" class="w-3 h-3 text-accent-emerald"></i>
+              <span>Sim Threshold:</span>
+            </span>
+            <span id="label-sim-threshold" class="text-accent-emerald font-bold">&ge; 0.60</span>
+          </div>
+          <input type="range" id="slider-sim-threshold" min="0" max="0.95" step="0.05" value="0.60" class="w-full">
+          <div class="flex justify-between text-[9px] text-surface-500 font-mono mt-1 font-medium">
+            <span>0.0 (All links)</span>
+            <span id="3d-connection-count" class="text-surface-700 dark:text-surface-300 font-bold">0 links</span>
+            <span>1.0 (Strict)</span>
+          </div>
+        </div>
+
+        <!-- Semantic Clusters Color Legend (Bottom-Right) -->
+        <div class="absolute bottom-3 right-3 bg-white/90 dark:bg-surface-900/90 backdrop-blur-md p-2 rounded-xl border border-surface-200 dark:border-surface-700 shadow-xl pointer-events-auto z-20 hidden sm:block max-w-[220px]">
+          <span class="text-[9px] font-mono uppercase text-surface-500 block mb-1 font-bold">Semantic Clusters:</span>
+          <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]">
+            <div class="flex items-center space-x-1.5">
+              <span class="w-2 h-2 rounded-full bg-accent-cyan shadow-sm"></span>
+              <span class="text-surface-700 dark:text-surface-300 font-medium">Technology</span>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <span class="w-2 h-2 rounded-full bg-accent-emerald shadow-sm"></span>
+              <span class="text-surface-700 dark:text-surface-300 font-medium">Animals</span>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <span class="w-2 h-2 rounded-full bg-accent-rose shadow-sm"></span>
+              <span class="text-surface-700 dark:text-surface-300 font-medium">Emotions</span>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <span class="w-2 h-2 rounded-full bg-accent-amber shadow-sm"></span>
+              <span class="text-surface-700 dark:text-surface-300 font-medium">Actions</span>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <span class="w-2 h-2 rounded-full bg-accent-purple shadow-sm"></span>
+              <span class="text-surface-700 dark:text-surface-300 font-medium">Objects</span>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <span class="w-2 h-2 rounded-full bg-surface-400"></span>
+              <span class="text-surface-700 dark:text-surface-300 font-medium">Grammar</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Floating Selected Node Inspector Panel -->
+        <div id="floating-inspector" class="hidden absolute top-16 right-3 bg-white/95 dark:bg-surface-900/95 backdrop-blur-lg p-4 rounded-2xl border border-brand-200 dark:border-brand-500/40 shadow-2xl pointer-events-auto z-30 w-72">
+          <div class="flex items-start justify-between border-b border-surface-200 dark:border-surface-800 pb-2 mb-2">
+            <div>
+              <div class="flex items-center space-x-1.5">
+                <span id="inspect-category-badge" class="w-2.5 h-2.5 rounded-full bg-brand-600"></span>
+                <h4 id="inspect-word-title" class="text-base font-extrabold text-surface-900 dark:text-white font-sans tracking-wide">cat</h4>
+              </div>
+              <span id="inspect-token-id" class="text-[11px] font-mono text-brand-600 dark:text-brand-400 font-bold">Token ID: #0</span>
+            </div>
+            <button id="btn-close-inspector" class="text-surface-400 hover:text-surface-700 dark:hover:text-white p-1 rounded-lg">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <!-- Stats -->
+          <div class="space-y-1.5 text-xs font-mono">
+            <div class="flex justify-between py-1 border-b border-surface-100 dark:border-surface-800/60">
+              <span class="text-surface-500">Frequency:</span>
+              <span id="inspect-freq" class="text-surface-900 dark:text-white font-bold">2</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-surface-100 dark:border-surface-800/60">
+              <span class="text-surface-500">Vector Coordinates:</span>
+              <span id="inspect-coords" class="text-brand-600 dark:text-accent-cyan font-bold">[1.20, 3.40, -0.80]</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-surface-100 dark:border-surface-800/60">
+              <span class="text-surface-500">Vector Norm ||V||:</span>
+              <span id="inspect-norm" class="text-accent-purple font-bold">3.69</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-surface-100 dark:border-surface-800/60">
+              <span class="text-surface-500">Category:</span>
+              <span id="inspect-category-text" class="text-surface-800 dark:text-surface-200 font-medium">Animals &amp; Nature</span>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="grid grid-cols-2 gap-2 mt-3 pt-2 border-t border-surface-200 dark:border-surface-800">
+            <button id="btn-inspect-calc-sim" class="py-1.5 px-2 bg-surface-100 hover:bg-surface-200 dark:bg-surface-800 text-brand-600 dark:text-brand-400 rounded-xl text-xs font-bold border border-surface-200 dark:border-surface-700 transition flex items-center justify-center space-x-1">
+              <i data-lucide="scale" class="w-3.5 h-3.5"></i>
+              <span>Compare</span>
+            </button>
+            <button id="btn-inspect-edit-vector" class="py-1.5 px-2 bg-surface-100 hover:bg-surface-200 dark:bg-surface-800 text-surface-700 dark:text-surface-200 rounded-xl text-xs font-bold border border-surface-200 dark:border-surface-700 transition flex items-center justify-center space-x-1">
+              <i data-lucide="sliders" class="w-3.5 h-3.5"></i>
+              <span>Edit Vector</span>
+            </button>
+          </div>
+          <button id="btn-inspect-delete-word" class="w-full mt-2 py-1 text-center text-xs text-rose-600 hover:text-rose-700 hover:underline font-bold">
+            Delete Word from Vocab
+          </button>
+        </div>
+
+        <!-- 3D Hover HUD Tooltip -->
+        <div id="three-hover-hud" class="hidden absolute pointer-events-none z-30 px-3 py-1.5 rounded-xl bg-white/95 dark:bg-surface-900/95 backdrop-blur-md border border-brand-300 dark:border-brand-500/50 shadow-xl text-xs font-mono">
+          <div class="flex items-center space-x-1.5">
+            <span id="three-hover-word" class="font-bold text-surface-900 dark:text-white">cat</span>
+            <span id="three-hover-id" class="text-brand-600 dark:text-brand-400 font-bold">#0</span>
+          </div>
+          <div id="three-hover-coords" class="text-[10px] text-surface-500">[0.0, 0.0, 0.0]</div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ================= EDIT WORD VECTOR MODAL ================= -->
+  <div id="modal-edit-vector" class="fixed inset-0 z-50 bg-surface-900/40 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-md rounded-2xl p-6 border border-surface-200 dark:border-surface-700 shadow-2xl relative">
+      <div class="flex items-center justify-between pb-3 border-b border-surface-200 dark:border-surface-800 mb-4">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="sliders" class="w-5 h-5 text-brand-600"></i>
+          <h3 class="text-base font-bold text-surface-900 dark:text-white">Edit Vector Coordinates</h3>
+        </div>
+        <button id="btn-close-edit-modal" class="text-surface-400 hover:text-surface-700 dark:hover:text-white p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs font-mono">
+        <div class="p-3 rounded-xl bg-surface-50 dark:bg-surface-950 border border-surface-200 dark:border-surface-800 flex justify-between items-center shadow-sm">
+          <div>
+            <span class="text-surface-500 block text-[11px] font-medium">Selected Word:</span>
+            <span id="modal-edit-word" class="text-base font-extrabold text-surface-900 dark:text-white font-sans">cat</span>
+          </div>
+          <span id="modal-edit-id" class="px-2.5 py-1 rounded-lg bg-brand-50 text-brand-600 border border-brand-200 dark:bg-brand-500/10 dark:text-brand-400 font-bold">Token #0</span>
+        </div>
+
+        <!-- Slider X -->
+        <div>
+          <div class="flex justify-between text-xs text-surface-500 mb-1 font-medium">
+            <span class="text-accent-rose font-bold">Coordinate X:</span>
+            <input type="number" id="modal-edit-val-x" step="0.1" class="w-20 bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded px-1.5 py-0.5 text-right font-bold text-surface-800 dark:text-white">
+          </div>
+          <input type="range" id="modal-slider-x" min="-12" max="12" step="0.1" class="w-full">
+        </div>
+
+        <!-- Slider Y -->
+        <div>
+          <div class="flex justify-between text-xs text-surface-500 mb-1 font-medium">
+            <span class="text-accent-emerald font-bold">Coordinate Y:</span>
+            <input type="number" id="modal-edit-val-y" step="0.1" class="w-20 bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded px-1.5 py-0.5 text-right font-bold text-surface-800 dark:text-white">
+          </div>
+          <input type="range" id="modal-slider-y" min="-12" max="12" step="0.1" class="w-full">
+        </div>
+
+        <!-- Slider Z -->
+        <div>
+          <div class="flex justify-between text-xs text-surface-500 mb-1 font-medium">
+            <span class="text-accent-cyan font-bold">Coordinate Z:</span>
+            <input type="number" id="modal-edit-val-z" step="0.1" class="w-20 bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-700 rounded px-1.5 py-0.5 text-right font-bold text-surface-800 dark:text-white">
+          </div>
+          <input type="range" id="modal-slider-z" min="-12" max="12" step="0.1" class="w-full">
+        </div>
+
+        <div class="pt-3 border-t border-surface-200 dark:border-surface-800 flex justify-end space-x-2 font-sans">
+          <button id="btn-cancel-edit-vector" class="px-4 py-2 rounded-xl bg-surface-100 hover:bg-surface-200 dark:bg-surface-800 text-surface-700 dark:text-surface-300 text-xs font-semibold">
+            Cancel
+          </button>
+          <button id="btn-save-edit-vector" class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold shadow-md shadow-brand-500/20">
+            Apply 3D Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= EDUCATIONAL NLP GUIDE MODAL ================= -->
+  <div id="modal-nlp-guide" class="fixed inset-0 z-50 bg-surface-900/40 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-2xl rounded-2xl p-6 border border-surface-200 dark:border-surface-700 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-surface-200 dark:border-surface-800 mb-4 sticky top-0 bg-white/95 dark:bg-surface-900/95 backdrop-blur-md z-10">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="book-open" class="w-5 h-5 text-brand-600"></i>
+          <h3 class="text-base font-bold text-surface-900 dark:text-white">Educational Guide: NLP Tokenization &amp; 3D Embeddings</h3>
+        </div>
+        <button id="btn-close-guide" class="text-surface-400 hover:text-surface-700 dark:hover:text-white p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs text-surface-600 dark:text-surface-300 leading-relaxed font-sans">
+        
+        <div class="p-4 rounded-xl bg-surface-50 dark:bg-surface-900/80 border border-surface-200 dark:border-surface-800 shadow-sm">
+          <h4 class="text-sm font-bold text-brand-600 dark:text-brand-400 mb-1.5 flex items-center space-x-1.5">
+            <span>1. What is Tokenization?</span>
+          </h4>
+          <p>
+            Computers and neural networks cannot process raw human text strings directly. Tokenization breaks unstructured text into atomic discrete units called <strong>Tokens</strong> (words, subwords, or characters).
+          </p>
+          <p class="mt-2 text-surface-500">
+            In word-level tokenization, punctuation is removed and words are normalized to lowercase so that "Playing" and "playing" are recognized as the exact same token concept.
+          </p>
+        </div>
+
+        <div class="p-4 rounded-xl bg-surface-50 dark:bg-surface-900/80 border border-surface-200 dark:border-surface-800 shadow-sm">
+          <h4 class="text-sm font-bold text-accent-emerald mb-1.5 flex items-center space-x-1.5">
+            <span>2. Vocabulary Builder &amp; Numerical Token IDs</span>
+          </h4>
+          <p>
+            The <strong>Vocabulary</strong> is an indexed lookup dictionary containing every unique word seen in the corpus. Each word is mapped to a sequential integer <strong>Token ID</strong>:
+          </p>
+          <div class="my-2 p-2.5 rounded-lg bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-800 font-mono text-[11px] text-brand-600 dark:text-accent-cyan font-bold">
+            "cat" &rarr; 0, "dog" &rarr; 1, "playing" &rarr; 2, "the" &rarr; 4 ...
+          </div>
+          <p>
+            When text is converted into numbers (e.g. <code>[4, 0, 1, 2, 3, 4, 5, 1, 2]</code>), it becomes an input tensor that machine learning models can compute with matrix operations.
+          </p>
+        </div>
+
+        <div class="p-4 rounded-xl bg-surface-50 dark:bg-surface-900/80 border border-surface-200 dark:border-surface-800 shadow-sm">
+          <h4 class="text-sm font-bold text-accent-purple mb-1.5 flex items-center space-x-1.5">
+            <span>3. High-Dimensional Word Embeddings in 3D Space</span>
+          </h4>
+          <p>
+            While integers represent identity, they do not convey meaning. Word Embeddings map each word to a point in a continuous geometric vector space where proximity represents semantic similarity.
+          </p>
+          <p class="mt-2 text-surface-500">
+            In modern LLMs (BERT, GPT), embeddings span 768 to 4096 dimensions. In this application, words are projected into an illustrative 3D coordinate space $(X, Y, Z)$ using deterministic clustering and contextual co-occurrence, allowing you to physically rotate, zoom, and inspect relationships.
+          </p>
+        </div>
+
+        <div class="p-4 rounded-xl bg-surface-50 dark:bg-surface-900/80 border border-surface-200 dark:border-surface-800 shadow-sm">
+          <h4 class="text-sm font-bold text-accent-rose mb-1.5 flex items-center space-x-1.5">
+            <span>4. Cosine Similarity Formula</span>
+          </h4>
+          <p>
+            Cosine similarity measures the angle &theta; between two vectors:
+          </p>
+          <div class="my-2 p-2.5 rounded-lg bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-800 font-mono text-center text-xs text-surface-900 dark:text-white font-bold">
+            cos(A, B) = (A &middot; B) / (||A|| &times; ||B||) = (x_A x_B + y_A y_B + z_A z_B) / (||A|| &times; ||B||)
+          </div>
+          <ul class="list-disc list-inside space-y-1 text-surface-500">
+            <li><strong>+1.0:</strong> Vectors point in the identical direction (maximum semantic similarity).</li>
+            <li><strong>0.0:</strong> Vectors are orthogonal (unrelated concepts).</li>
+            <li><strong>-1.0:</strong> Vectors point in opposite directions.</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="mt-5 pt-3 border-t border-surface-200 dark:border-surface-800 flex justify-end">
+        <button id="btn-close-guide-footer" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-md shadow-brand-500/20">
+          Got it! Explore Studio
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= FLOATING TOAST CONTAINER ================= -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <!-- ================= MAIN APPLICATION JAVASCRIPT ================= -->
+  <script>
+    /**
+     * LexiSpace 3D: Architecture & State Management
+     */
+    const AppState = {
+      vocabulary: {},
+      nextId: 0,
+      totalTokensProcessed: 0,
+      history: [],
+      cooccurrences: {},
+      
+      selectedWordA: null,
+      selectedWordB: null,
+      inspectedWord: null,
+
+      // Tokenizer mode: 'word' | 'bpe' | 'char'
+      tokenizerMode: 'word',
+
+      // 3D Projection mode: '3d' | 'pca2d'
+      projectionMode: '3d',
+
+      settings: {
+        theme: 'light',
+        lowercase: true,
+        removePunctuation: true,
+        realtime: true,
+        simThreshold: 0.60,
+        showLabels: true,
+        showGrid: true,
+        autoRotate: false,
+        soundEnabled: true,
+        dragMode: false
+      }
+    };
+
+    // Category Color Palettes for Light Theme
+    const CATEGORIES = {
+      'Animals':    { label: 'Animals & Nature',  hex: '#059669', int: 0x059669, center: [-5.0, 3.5, 3.5] },
+      'Technology': { label: 'Technology & AI',   hex: '#0284c7', int: 0x0284c7, center: [5.0, 3.8, 2.5] },
+      'Emotions':   { label: 'Emotions & Mind',   hex: '#e11d48', int: 0xe11d48, center: [4.5, -4.0, -3.2] },
+      'Actions':    { label: 'Actions & Verbs',   hex: '#d97706', int: 0xd97706, center: [-3.8, -4.2, 4.0] },
+      'Objects':    { label: 'Objects & Nouns',   hex: '#7c3aed', int: 0x7c3aed, center: [-4.2, -3.0, -4.5] },
+      'Grammar':    { label: 'Grammar & Stop',    hex: '#64748b', int: 0x64748b, center: [0.2, 0.4, 0.2] },
+      'General':    { label: 'General / Concept', hex: '#4f46e5', int: 0x4f46e5, center: [0.0, 0.0, 0.0] }
+    };
+
+    const KNOWN_CLASSIFIERS = {
+      cat: 'Animals', dog: 'Animals', lion: 'Animals', wolf: 'Animals', bird: 'Animals', fish: 'Animals', kitten: 'Animals',
+      tree: 'Animals', forest: 'Animals', river: 'Animals', nature: 'Animals', fox: 'Animals', puppy: 'Animals',
+      model: 'Technology', neural: 'Technology', network: 'Technology', data: 'Technology', token: 'Technology',
+      embedding: 'Technology', ai: 'Technology', algorithm: 'Technology', deep: 'Technology', learning: 'Technology',
+      transformer: 'Technology', vector: 'Technology', robot: 'Technology', code: 'Technology', compute: 'Technology',
+      happy: 'Emotions', joy: 'Emotions', love: 'Emotions', sad: 'Emotions', anger: 'Emotions', fear: 'Emotions',
+      hope: 'Emotions', smile: 'Emotions', calm: 'Emotions', sorrow: 'Emotions', peace: 'Emotions',
+      playing: 'Actions', running: 'Actions', jumping: 'Actions', walking: 'Actions', coding: 'Actions',
+      thinking: 'Actions', jumps: 'Actions', eating: 'Actions', play: 'Actions',
+      book: 'Objects', car: 'Objects', house: 'Objects', computer: 'Objects', phone: 'Objects', door: 'Objects',
+      king: 'Objects', queen: 'Objects', man: 'Objects', woman: 'Objects',
+      the: 'Grammar', is: 'Grammar', and: 'Grammar', in: 'Grammar', to: 'Grammar', of: 'Grammar', a: 'Grammar',
+      with: 'Grammar', an: 'Grammar', over: 'Grammar', lazy: 'Grammar', brown: 'Objects', quick: 'Actions'
+    };
+
+    /**
+     * Web Audio API Synthesizer
+     */
+    const AudioController = {
+      ctx: null,
+      init() {
+        if (!this.ctx && (window.AudioContext || window.webkitAudioContext)) {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+      },
+      playTone(freq = 440, type = 'sine', duration = 0.08, gainVal = 0.04) {
+        if (!AppState.settings.soundEnabled) return;
+        try {
+          this.init();
+          if (!this.ctx) return;
+          if (this.ctx.state === 'suspended') this.ctx.resume();
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch(e) {}
+      },
+      beepToken() { this.playTone(560, 'sine', 0.05, 0.03); },
+      beepSuccess() { 
+        this.playTone(480, 'triangle', 0.07, 0.04); 
+        setTimeout(() => this.playTone(720, 'triangle', 0.1, 0.04), 70); 
+      },
+      beepSnap() { this.playTone(360, 'sine', 0.04, 0.02); }
+    };
+
+    /**
+     * Deterministic Pseudo-Random Coordinate Generator
+     */
+    function hashString(str) {
+      let hash = 2166136261;
+      for (let i = 0; i < str.length; i++) {
+        hash ^= str.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+      return hash >>> 0;
+    }
+
+    function generateDeterministicCoordinates(word, category) {
+      const hash = hashString(word.toLowerCase());
+      const h1 = ((hash & 0xFF) / 255) * 2 - 1;
+      const h2 = (((hash >> 8) & 0xFF) / 255) * 2 - 1;
+      const h3 = (((hash >> 16) & 0xFF) / 255) * 2 - 1;
+
+      const catInfo = CATEGORIES[category] || CATEGORIES['General'];
+      const center = catInfo.center;
+      const spread = 2.2;
+
+      const x = Math.round((center[0] + h1 * spread) * 100) / 100;
+      const y = Math.round((center[1] + h2 * spread) * 100) / 100;
+      const z = Math.round((center[2] + h3 * spread) * 100) / 100;
+
+      return [x, y, z];
+    }
+
+    /**
+     * Multi-Strategy Tokenizer Engine
+     */
+    function cleanAndTokenize(text, options = {}, mode = 'word') {
+      if (!text || typeof text !== 'string') return [];
+      
+      let processed = text;
+      if (options.lowercase !== false) {
+        processed = processed.toLowerCase();
+      }
+
+      if (options.removePunctuation !== false) {
+        processed = processed.replace(/[^\w\s']/g, ' ');
+      }
+
+      if (mode === 'char') {
+        return processed.replace(/\s+/g, '').split('');
+      }
+
+      const words = processed.split(/\s+/).map(t => t.trim()).filter(t => t.length > 0);
+
+      if (mode === 'bpe') {
+        // Subword simulation (Byte-Pair style subword breakdown)
+        const subwords = [];
+        words.forEach(w => {
+          if (w.length <= 4) {
+            subwords.push(w);
+          } else if (w.endsWith('ing')) {
+            subwords.push(w.slice(0, -3), '##ing');
+          } else if (w.endsWith('ed')) {
+            subwords.push(w.slice(0, -2), '##ed');
+          } else if (w.endsWith('s') && w.length > 4) {
+            subwords.push(w.slice(0, -1), '##s');
+          } else if (w.startsWith('un') && w.length > 5) {
+            subwords.push('un##', w.slice(2));
+          } else {
+            // Split into 2 chunks
+            const mid = Math.ceil(w.length / 2);
+            subwords.push(w.slice(0, mid), '##' + w.slice(mid));
+          }
+        });
+        return subwords;
+      }
+
+      return words;
+    }
+
+    /**
+     * Vector Math Utilities
+     */
+    function calculateVectorNorm(v) {
+      return Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+    }
+
+    function calculateCosineSimilarity(vA, vB) {
+      const dot = vA[0] * vB[0] + vA[1] * vB[1] + vA[2] * vB[2];
+      const normA = calculateVectorNorm(vA);
+      const normB = calculateVectorNorm(vB);
+      if (normA === 0 || normB === 0) return 0;
+      const cos = dot / (normA * normB);
+      return Math.max(-1, Math.min(1, cos));
+    }
+
+    /**
+     * LocalStorage Persistence
+     */
+    const STORAGE_KEY = 'lexispace_nlp_light_v3';
+
+    function saveStateToStorage() {
+      try {
+        const payload = {
+          vocabulary: AppState.vocabulary,
+          nextId: AppState.nextId,
+          totalTokensProcessed: AppState.totalTokensProcessed,
+          cooccurrences: AppState.cooccurrences,
+          settings: AppState.settings
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      } catch (e) {}
+    }
+
+    function loadStateFromStorage() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.vocabulary && Object.keys(parsed.vocabulary).length > 0) {
+            AppState.vocabulary = parsed.vocabulary;
+            AppState.nextId = parsed.nextId || Object.keys(parsed.vocabulary).length;
+            AppState.totalTokensProcessed = parsed.totalTokensProcessed || 0;
+            AppState.cooccurrences = parsed.cooccurrences || {};
+            if (parsed.settings) Object.assign(AppState.settings, parsed.settings);
+            return true;
+          }
+        }
+      } catch (e) {}
+      return false;
+    }
+
+    /**
+     * Vocabulary Management Helpers
+     */
+    function registerWordToVocab(word, initialFreq = 1, forceCategory = null, forceCoords = null) {
+      const normalized = word.trim().toLowerCase();
+      if (!normalized) return null;
+
+      if (AppState.vocabulary[normalized]) {
+        AppState.vocabulary[normalized].frequency += initialFreq;
+        return AppState.vocabulary[normalized];
+      }
+
+      let category = forceCategory;
+      if (!category) {
+        category = KNOWN_CLASSIFIERS[normalized] || 'General';
+      }
+
+      const coords = forceCoords || generateDeterministicCoordinates(normalized, category);
+
+      const entry = {
+        id: AppState.nextId++,
+        word: normalized,
+        frequency: initialFreq,
+        category: category,
+        vector: coords,
+        custom: !!forceCoords
+      };
+
+      AppState.vocabulary[normalized] = entry;
+      return entry;
+    }
+
+    function processTokensIntoCorpus(tokens) {
+      if (!tokens || tokens.length === 0) return [];
+      
+      AppState.totalTokensProcessed += tokens.length;
+      const tokenObjs = [];
+
+      tokens.forEach(tok => {
+        let entry = AppState.vocabulary[tok];
+        if (!entry) {
+          entry = registerWordToVocab(tok, 1);
+        } else {
+          entry.frequency += 1;
+        }
+        tokenObjs.push(entry);
+      });
+
+      // Update sliding window co-occurrences
+      const windowSize = 3;
+      for (let i = 0; i < tokens.length; i++) {
+        for (let j = i + 1; j < Math.min(tokens.length, i + windowSize + 1); j++) {
+          const w1 = tokens[i];
+          const w2 = tokens[j];
+          if (w1 !== w2) {
+            const pairKey = [w1, w2].sort().join('|');
+            AppState.cooccurrences[pairKey] = (AppState.cooccurrences[pairKey] || 0) + 1;
+          }
+        }
+      }
+
+      saveStateToStorage();
+      return tokenObjs;
+    }
+
+    /**
+     * Toast Notifications UI Helper
+     */
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      let borderCol = 'border-brand-300 dark:border-brand-500/50 text-surface-800 dark:text-surface-100';
+      let icon = 'info';
+      if (type === 'success') { borderCol = 'border-accent-emerald text-accent-emerald'; icon = 'check-circle'; }
+      if (type === 'warning') { borderCol = 'border-amber-500 text-amber-700 dark:text-amber-300'; icon = 'alert-triangle'; }
+      if (type === 'error') { borderCol = 'border-rose-500 text-rose-700 dark:text-rose-300'; icon = 'alert-circle'; }
+
+      toast.className = `p-3 rounded-xl bg-white/95 dark:bg-surface-900/95 backdrop-blur-md border ${borderCol} shadow-xl text-xs flex items-center space-x-2 transition-all duration-300 transform translate-y-2 opacity-0 pointer-events-auto max-w-sm`;
+      toast.innerHTML = `
+        <i data-lucide="${icon}" class="w-4 h-4 flex-shrink-0"></i>
+        <span class="font-medium">${message}</span>
+      `;
+      container.appendChild(toast);
+      lucide.createIcons({ root: toast });
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      }, 10);
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    /**
+     * ==========================================
+     * THREE.JS 3D VISUALIZATION ENGINE (BUG FIXES & LIGHT THEME)
+     * ==========================================
+     */
+    const ThreeScene = {
+      scene: null,
+      camera: null,
+      renderer: null,
+      controls: null,
+      raycaster: new THREE.Raycaster(),
+      mouse: new THREE.Vector2(-999, -999),
+      
+      // Scene Dictionaries
+      nodeMeshes: {},
+      labelSprites: {},
+      connectionLines: null,
+      activeLaserBeam: null,
+      haloRing: null,
+      gridHelper: null,
+      axesGroup: null,
+
+      // Custom Plane Dragging State (Rock Solid, Zero DragControls listener conflicts)
+      dragPlane: null,
+      draggedObject: null,
+      dragOffset: new THREE.Vector3(),
+      isPointerDown: false,
+
+      hoveredMesh: null,
+      isInitialized: false,
+
+      init() {
+        const container = document.getElementById('three-container');
+        const canvas = document.getElementById('three-viewport');
+        const width = container.clientWidth || 600;
+        const height = container.clientHeight || 550;
+
+        // 1. Scene
+        this.scene = new THREE.Scene();
+        this.updateSceneBackground();
+
+        // 2. Camera
+        this.camera = new THREE.PerspectiveCamera(48, width / height, 0.1, 1000);
+        this.camera.position.set(15, 13, 19);
+
+        // 3. Renderer
+        this.renderer = new THREE.WebGLRenderer({
+          canvas: canvas,
+          antialias: true,
+          alpha: true,
+          preserveDrawingBuffer: true, // For PNG snapshots!
+          powerPreference: "high-performance"
+        });
+        this.renderer.setSize(width, height);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        // 4. OrbitControls
+        this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+        this.controls.enableDamping = true;
+        this.controls.dampingFactor = 0.08;
+        this.controls.maxDistance = 65;
+        this.controls.minDistance = 3;
+        this.controls.target.set(0, 0, 0);
+
+        // 5. Lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+        this.scene.add(ambientLight);
+
+        const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.7);
+        dirLight1.position.set(25, 40, 25);
+        this.scene.add(dirLight1);
+
+        const dirLight2 = new THREE.DirectionalLight(0x6366f1, 0.35);
+        dirLight2.position.set(-25, -20, -25);
+        this.scene.add(dirLight2);
+
+        // 6. Grid & Coordinate Axes
+        this.buildGridAndAxes();
+
+        // 7. Selection Halo
+        this.buildSelectionHalo();
+
+        // 8. Virtual Drag Plane
+        this.dragPlane = new THREE.Plane();
+
+        // 9. Attach Native Pointer Listeners for Dragging & Picking
+        this.setupCustomPointerInteractions();
+
+        // 10. Robust ResizeObserver (Fixes layout resize & aspect ratio bugs)
+        const resizeObserver = new ResizeObserver(() => this.onContainerResize());
+        resizeObserver.observe(container);
+
+        this.isInitialized = true;
+        this.animate();
+      },
+
+      updateSceneBackground() {
+        const isDark = document.documentElement.classList.contains('dark');
+        const bgHex = isDark ? 0x070a13 : 0xf8fafc;
+        this.scene.background = new THREE.Color(bgHex);
+        this.scene.fog = new THREE.FogExp2(bgHex, 0.022);
+      },
+
+      buildGridAndAxes() {
+        const isDark = document.documentElement.classList.contains('dark');
+        
+        // Remove old grid/axes if present
+        if (this.gridHelper) this.scene.remove(this.gridHelper);
+        if (this.axesGroup) this.scene.remove(this.axesGroup);
+
+        // Subtle ground grid
+        const gridColor1 = isDark ? 0x1e293b : 0xcbd5e1;
+        const gridColor2 = isDark ? 0x0f172a : 0xe2e8f0;
+        this.gridHelper = new THREE.GridHelper(26, 26, gridColor1, gridColor2);
+        this.gridHelper.position.y = -6;
+        this.gridHelper.visible = AppState.settings.showGrid;
+        this.scene.add(this.gridHelper);
+
+        // Coordinate Axes Group
+        this.axesGroup = new THREE.Group();
+        const createAxis = (from, to, colorHex) => {
+          const geom = new THREE.BufferGeometry().setFromPoints([from, to]);
+          const mat = new THREE.LineBasicMaterial({ color: colorHex, linewidth: 2, transparent: true, opacity: 0.65 });
+          return new THREE.Line(geom, mat);
+        };
+
+        // X (Rose), Y (Emerald), Z (Cyan)
+        this.axesGroup.add(createAxis(new THREE.Vector3(-12, 0, 0), new THREE.Vector3(12, 0, 0), 0xe11d48));
+        this.axesGroup.add(createAxis(new THREE.Vector3(0, -12, 0), new THREE.Vector3(0, 12, 0), 0x059669));
+        this.axesGroup.add(createAxis(new THREE.Vector3(0, 0, -12), new THREE.Vector3(0, 0, 12), 0x0284c7));
+
+        this.axesGroup.visible = AppState.settings.showGrid;
+        this.scene.add(this.axesGroup);
+      },
+
+      buildSelectionHalo() {
+        const ringGeom = new THREE.RingGeometry(0.55, 0.68, 36);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: 0x4f46e5,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.85
+        });
+        this.haloRing = new THREE.Mesh(ringGeom, ringMat);
+        this.haloRing.visible = false;
+        this.scene.add(this.haloRing);
+      },
+
+      /**
+       * Bulletproof Custom Raycast Dragging (Fixes all DragControls bugs)
+       */
+      setupCustomPointerInteractions() {
+        const canvas = this.renderer.domElement;
+
+        const getIntersectedNode = (e) => {
+          const rect = canvas.getBoundingClientRect();
+          this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+          this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+          this.raycaster.setFromCamera(this.mouse, this.camera);
+          const meshes = Object.values(this.nodeMeshes);
+          const intersects = this.raycaster.intersectObjects(meshes);
+          return intersects.length > 0 ? intersects[0] : null;
+        };
+
+        canvas.addEventListener('pointerdown', (e) => {
+          this.isPointerDown = true;
+          const hit = getIntersectedNode(e);
+
+          if (hit && AppState.settings.dragMode) {
+            // Drag mode active on this node
+            this.draggedObject = hit.object;
+            this.controls.enabled = false;
+
+            // Align drag plane facing camera at node position
+            this.dragPlane.setFromNormalAndCoplanarPoint(
+              this.camera.getWorldDirection(new THREE.Vector3()).negate(),
+              this.draggedObject.position
+            );
+
+            const intersectionPoint = new THREE.Vector3();
+            if (this.raycaster.ray.intersectPlane(this.dragPlane, intersectionPoint)) {
+              this.dragOffset.copy(this.draggedObject.position).sub(intersectionPoint);
+            }
+            AudioController.beepSnap();
+          }
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+          const hit = getIntersectedNode(e);
+          const hud = document.getElementById('three-hover-hud');
+          const rect = canvas.getBoundingClientRect();
+
+          if (this.draggedObject && AppState.settings.dragMode) {
+            // Actively dragging node
+            const intersectionPoint = new THREE.Vector3();
+            if (this.raycaster.ray.intersectPlane(this.dragPlane, intersectionPoint)) {
+              const newPos = intersectionPoint.add(this.dragOffset);
+              newPos.clamp(new THREE.Vector3(-12, -12, -12), new THREE.Vector3(12, 12, 12));
+
+              this.draggedObject.position.copy(newPos);
+              const word = this.draggedObject.userData.word;
+
+              // Update label position
+              if (this.labelSprites[word]) {
+                this.labelSprites[word].position.copy(newPos).add(new THREE.Vector3(0, 0.75, 0));
+              }
+
+              // Update halo position if selected
+              if (AppState.inspectedWord === word && this.haloRing) {
+                this.haloRing.position.copy(newPos);
+              }
+
+              // Update vector in AppState
+              if (AppState.vocabulary[word]) {
+                AppState.vocabulary[word].vector = [
+                  Math.round(newPos.x * 100) / 100,
+                  Math.round(newPos.y * 100) / 100,
+                  Math.round(newPos.z * 100) / 100
+                ];
+              }
+
+              // Sync Inspector
+              if (AppState.inspectedWord === word) {
+                updateInspectorUI(word);
+              }
+
+              // Dynamic line updates
+              this.updateConnectionLines();
+            }
+            return;
+          }
+
+          // Hover detection
+          if (hit) {
+            this.hoveredMesh = hit.object;
+            canvas.style.cursor = AppState.settings.dragMode ? 'grab' : 'pointer';
+
+            const word = hit.object.userData.word;
+            const entry = AppState.vocabulary[word];
+            if (entry) {
+              document.getElementById('three-hover-word').textContent = word;
+              document.getElementById('three-hover-id').textContent = `#${entry.id}`;
+              document.getElementById('three-hover-coords').textContent = `[${entry.vector.join(', ')}]`;
+
+              hud.style.left = `${Math.min(rect.width - 150, e.clientX - rect.left + 15)}px`;
+              hud.style.top = `${Math.max(10, e.clientY - rect.top - 20)}px`;
+              hud.classList.remove('hidden');
+            }
+          } else {
+            this.hoveredMesh = null;
+            canvas.style.cursor = AppState.settings.dragMode ? 'crosshair' : 'grab';
+            hud.classList.add('hidden');
+          }
+        });
+
+        const onPointerUp = () => {
+          this.isPointerDown = false;
+          if (this.draggedObject) {
+            const word = this.draggedObject.userData.word;
+            this.draggedObject = null;
+            this.controls.enabled = true;
+            saveStateToStorage();
+            renderFullVocabTable();
+            updateSimilarityCalculatorUI();
+            showToast(`Position for "${word}" saved`, 'success');
+          }
+        };
+
+        canvas.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('pointerup', onPointerUp);
+
+        // Click selection
+        canvas.addEventListener('click', (e) => {
+          if (!AppState.settings.dragMode && this.hoveredMesh) {
+            const word = this.hoveredMesh.userData.word;
+            selectAndInspectWord(word);
+            AudioController.playTone(580, 'sine', 0.08, 0.04);
+          }
+        });
+      },
+
+      /**
+       * Crisp High-DPI Billboard Text Labels
+       */
+      createBillboardLabel(text, categoryHex, freq) {
+        const isDark = document.documentElement.classList.contains('dark');
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 140;
+        const ctx = canvas.getContext('2d');
+
+        // Crisp rendering settings
+        ctx.imageSmoothingEnabled = true;
+
+        // Container Pill
+        ctx.fillStyle = isDark ? 'rgba(15, 23, 42, 0.92)' : 'rgba(255, 255, 255, 0.94)';
+        ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(203, 213, 225, 0.9)';
+        ctx.lineWidth = 4;
+        
+        ctx.beginPath();
+        ctx.roundRect(16, 16, 480, 108, 28);
+        ctx.fill();
+        ctx.stroke();
+
+        // Category color dot
+        ctx.fillStyle = categoryHex;
+        ctx.beginPath();
+        ctx.arc(60, 70, 14, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Text
+        ctx.fillStyle = isDark ? '#ffffff' : '#0f172a';
+        ctx.font = 'bold 44px Inter, system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 95, 70);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;
+        
+        const spriteMat = new THREE.SpriteMaterial({
+          map: texture,
+          transparent: true,
+          opacity: 0.98,
+          depthTest: true,
+          depthWrite: false
+        });
+        const sprite = new THREE.Sprite(spriteMat);
+        sprite.scale.set(2.4, 0.7, 1);
+        return sprite;
+      },
+
+      syncVocabularyWithScene() {
+        const wordsInVocab = Object.keys(AppState.vocabulary);
+
+        // 1. Remove obsolete nodes
+        Object.keys(this.nodeMeshes).forEach(w => {
+          if (!AppState.vocabulary[w]) {
+            this.scene.remove(this.nodeMeshes[w]);
+            this.scene.remove(this.labelSprites[w]);
+            delete this.nodeMeshes[w];
+            delete this.labelSprites[w];
+          }
+        });
+
+        // 2. Add or update nodes
+        wordsInVocab.forEach(word => {
+          const entry = AppState.vocabulary[word];
+          const catInfo = CATEGORIES[entry.category] || CATEGORIES['General'];
+          const pos = entry.vector;
+
+          const radius = Math.min(0.68, 0.32 + Math.log(entry.frequency + 1) * 0.12);
+
+          if (!this.nodeMeshes[word]) {
+            const geom = new THREE.SphereGeometry(radius, 32, 32);
+            const mat = new THREE.MeshStandardMaterial({
+              color: catInfo.int,
+              roughness: 0.25,
+              metalness: 0.2,
+              emissive: catInfo.int,
+              emissiveIntensity: 0.2
+            });
+            const mesh = new THREE.Mesh(geom, mat);
+            mesh.position.set(pos[0], pos[1], pos[2]);
+            mesh.userData = { word: word, id: entry.id };
+            this.scene.add(mesh);
+            this.nodeMeshes[word] = mesh;
+
+            const sprite = this.createBillboardLabel(word, catInfo.hex, entry.frequency);
+            sprite.position.copy(mesh.position).add(new THREE.Vector3(0, radius + 0.58, 0));
+            sprite.visible = AppState.settings.showLabels;
+            this.scene.add(sprite);
+            this.labelSprites[word] = sprite;
+          } else {
+            const mesh = this.nodeMeshes[word];
+            mesh.position.set(pos[0], pos[1], pos[2]);
+            if (this.labelSprites[word]) {
+              this.labelSprites[word].position.copy(mesh.position).add(new THREE.Vector3(0, radius + 0.58, 0));
+            }
+          }
+        });
+
+        this.updateConnectionLines();
+        updateHeaderAndStatCounters();
+      },
+
+      updateConnectionLines() {
+        if (this.connectionLines) {
+          this.scene.remove(this.connectionLines);
+          this.connectionLines.geometry.dispose();
+          this.connectionLines = null;
+        }
+
+        const words = Object.keys(AppState.vocabulary);
+        if (words.length < 2) {
+          document.getElementById('3d-connection-count').textContent = '0 links';
+          document.getElementById('header-links-count').textContent = '0';
+          return;
+        }
+
+        const points = [];
+        const colors = [];
+        const threshold = AppState.settings.simThreshold;
+        let connectionCount = 0;
+
+        for (let i = 0; i < words.length; i++) {
+          const w1 = words[i];
+          const v1 = AppState.vocabulary[w1].vector;
+          const pos1 = new THREE.Vector3(v1[0], v1[1], v1[2]);
+
+          for (let j = i + 1; j < words.length; j++) {
+            const w2 = words[j];
+            const v2 = AppState.vocabulary[w2].vector;
+            const sim = calculateCosineSimilarity(v1, v2);
+
+            if (sim >= threshold) {
+              const pos2 = new THREE.Vector3(v2[0], v2[1], v2[2]);
+              points.push(pos1, pos2);
+
+              const color = new THREE.Color().setHSL(0.55 + sim * 0.12, 0.8, 0.5);
+              colors.push(color.r, color.g, color.b);
+              colors.push(color.r, color.g, color.b);
+              connectionCount++;
+            }
+          }
+        }
+
+        if (points.length > 0) {
+          const geom = new THREE.BufferGeometry().setFromPoints(points);
+          geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+          
+          const mat = new THREE.LineBasicMaterial({
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.45,
+            linewidth: 1
+          });
+
+          this.connectionLines = new THREE.LineSegments(geom, mat);
+          this.scene.add(this.connectionLines);
+        }
+
+        document.getElementById('3d-connection-count').textContent = `${connectionCount} links`;
+        document.getElementById('header-links-count').textContent = connectionCount;
+        if (document.getElementById('metric-active-edges')) {
+          document.getElementById('metric-active-edges').textContent = connectionCount;
+        }
+      },
+
+      highlightComparisonLaser(wordA, wordB) {
+        if (this.activeLaserBeam) {
+          this.scene.remove(this.activeLaserBeam);
+          this.activeLaserBeam = null;
+        }
+
+        if (!wordA || !wordB || !this.nodeMeshes[wordA] || !this.nodeMeshes[wordB]) return;
+
+        const pA = this.nodeMeshes[wordA].position;
+        const pB = this.nodeMeshes[wordB].position;
+
+        const geom = new THREE.BufferGeometry().setFromPoints([pA, pB]);
+        const mat = new THREE.LineDashedMaterial({
+          color: 0x4f46e5,
+          dashSize: 0.5,
+          gapSize: 0.2,
+          linewidth: 3,
+          transparent: true,
+          opacity: 0.95
+        });
+
+        this.activeLaserBeam = new THREE.Line(geom, mat);
+        this.activeLaserBeam.computeLineDistances();
+        this.scene.add(this.activeLaserBeam);
+      },
+
+      flyCameraToNode(word) {
+        const mesh = this.nodeMeshes[word];
+        if (!mesh) return;
+
+        const targetPos = mesh.position.clone().add(new THREE.Vector3(4, 3, 5));
+        const duration = 700;
+        const startPos = this.camera.position.clone();
+        const startTarget = this.controls.target.clone();
+        const endTarget = mesh.position.clone();
+        const startTime = performance.now();
+
+        const animateCam = (currentTime) => {
+          const elapsed = currentTime - startTime;
+          const progress = Math.min(1, elapsed / duration);
+          const ease = 1 - Math.pow(1 - progress, 3);
+
+          this.camera.position.lerpVectors(startPos, targetPos, ease);
+          this.controls.target.lerpVectors(startTarget, endTarget, ease);
+
+          if (progress < 1) {
+            requestAnimationFrame(animateCam);
+          }
+        };
+
+        requestAnimationFrame(animateCam);
+      },
+
+      onContainerResize() {
+        const container = document.getElementById('three-container');
+        if (!container || !this.renderer) return;
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        if (width === 0 || height === 0) return;
+
+        this.camera.aspect = width / height;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(width, height);
+      },
+
+      animate() {
+        requestAnimationFrame(() => this.animate());
+
+        if (AppState.settings.autoRotate && this.controls) {
+          this.controls.autoRotate = true;
+          this.controls.autoRotateSpeed = 1.0;
+        } else if (this.controls) {
+          this.controls.autoRotate = false;
+        }
+
+        if (this.haloRing && this.haloRing.visible) {
+          this.haloRing.quaternion.copy(this.camera.quaternion);
+          const time = performance.now() * 0.003;
+          const s = 1 + Math.sin(time) * 0.12;
+          this.haloRing.scale.set(s, s, s);
+        }
+
+        this.controls.update();
+        this.renderer.render(this.scene, this.camera);
+      }
+    };
+
+    /**
+     * Inspect Selected Word in 3D Viewport
+     */
+    function selectAndInspectWord(word) {
+      if (!AppState.vocabulary[word]) return;
+      const entry = AppState.vocabulary[word];
+      AppState.inspectedWord = word;
+
+      const mesh = ThreeScene.nodeMeshes[word];
+      if (mesh && ThreeScene.haloRing) {
+        ThreeScene.haloRing.position.copy(mesh.position);
+        ThreeScene.haloRing.visible = true;
+      }
+
+      updateInspectorUI(word);
+      document.getElementById('floating-inspector').classList.remove('hidden');
+
+      const selA = document.getElementById('sim-select-word-a');
+      if (selA) selA.value = word;
+      const quickA = document.getElementById('quick-word-a');
+      if (quickA) quickA.value = word;
+    }
+
+    function updateInspectorUI(word) {
+      const entry = AppState.vocabulary[word];
+      if (!entry) return;
+
+      document.getElementById('inspect-word-title').textContent = entry.word;
+      document.getElementById('inspect-token-id').textContent = `Token ID: #${entry.id}`;
+      document.getElementById('inspect-freq').textContent = entry.frequency;
+      document.getElementById('inspect-coords').textContent = `[${entry.vector.join(', ')}]`;
+      
+      const norm = calculateVectorNorm(entry.vector);
+      document.getElementById('inspect-norm').textContent = norm.toFixed(2);
+      
+      const catInfo = CATEGORIES[entry.category] || CATEGORIES['General'];
+      document.getElementById('inspect-category-text').textContent = catInfo.label;
+      document.getElementById('inspect-category-badge').style.backgroundColor = catInfo.hex;
+    }
+
+    /**
+     * ==========================================
+     * UI RENDERING & COMPONENT SYNCHRONIZATION
+     * ==========================================
+     */
+    function getTokenColor(word) {
+      const entry = AppState.vocabulary[word.toLowerCase()];
+      if (entry && CATEGORIES[entry.category]) {
+        return CATEGORIES[entry.category].hex;
+      }
+      const hash = hashString(word.toLowerCase());
+      const hue = hash % 360;
+      return `hsl(${hue}, 70%, 48%)`;
+    }
+
+    function renderTokenChips(tokens, containerId, statsId, encodedArrayId) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      container.innerHTML = '';
+      if (!tokens || tokens.length === 0) {
+        container.innerHTML = '<span class="text-xs text-surface-400 italic">No tokens generated. Type text above...</span>';
+        if (encodedArrayId) document.getElementById(encodedArrayId).textContent = '[]';
+        return;
+      }
+
+      const encodedIds = [];
+      const uniqueTokens = new Set();
+
+      tokens.forEach((word, index) => {
+        uniqueTokens.add(word);
+        const entry = AppState.vocabulary[word];
+        const tokenId = entry ? entry.id : (AppState.nextId + index);
+        encodedIds.push(tokenId);
+
+        const colorHex = getTokenColor(word);
+
+        const chip = document.createElement('div');
+        chip.className = 'token-chip group relative inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-xl text-xs font-mono font-medium cursor-pointer border shadow-sm';
+        chip.style.backgroundColor = `${colorHex}15`;
+        chip.style.borderColor = `${colorHex}45`;
+        chip.style.color = colorHex;
+
+        chip.innerHTML = `
+          <span class="font-bold font-sans text-surface-900 dark:text-white">${word}</span>
+          <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 text-brand-600">#${tokenId}</span>
+        `;
+
+        chip.addEventListener('click', () => {
+          selectAndInspectWord(word);
+          ThreeScene.flyCameraToNode(word);
+          AudioController.beepToken();
+        });
+
+        container.appendChild(chip);
+      });
+
+      if (statsId) {
+        document.getElementById(statsId).textContent = `${tokens.length} tokens | ${uniqueTokens.size} unique`;
+      }
+
+      if (encodedArrayId) {
+        document.getElementById(encodedArrayId).textContent = `[${encodedIds.join(', ')}]`;
+      }
+    }
+
+    /**
+     * Render Vocabulary Tables
+     */
+    function renderFullVocabTable() {
+      const tbody = document.getElementById('full-vocab-table-body');
+      const quickTbody = document.getElementById('quick-vocab-tbody');
+      if (!tbody) return;
+
+      const words = Object.values(AppState.vocabulary);
+      const searchVal = (document.getElementById('vocab-search-input')?.value || '').trim().toLowerCase();
+      const catFilter = document.getElementById('vocab-category-filter')?.value || 'ALL';
+      const sortBy = document.getElementById('vocab-sort-by')?.value || 'id_asc';
+
+      let filtered = words.filter(w => {
+        const matchSearch = w.word.includes(searchVal) || String(w.id) === searchVal;
+        const matchCat = catFilter === 'ALL' || w.category === catFilter;
+        return matchSearch && matchCat;
+      });
+
+      filtered.sort((a, b) => {
+        if (sortBy === 'id_asc') return a.id - b.id;
+        if (sortBy === 'freq_desc') return b.frequency - a.frequency;
+        if (sortBy === 'alpha_asc') return a.word.localeCompare(b.word);
+        if (sortBy === 'magnitude_desc') return calculateVectorNorm(b.vector) - calculateVectorNorm(a.vector);
+        return 0;
+      });
+
+      tbody.innerHTML = '';
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-surface-400 italic text-xs">No vocabulary entries found matching filters.</td></tr>`;
+      } else {
+        filtered.forEach(entry => {
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-surface-50 dark:hover:bg-surface-900/60 transition';
+          const catInfo = CATEGORIES[entry.category] || CATEGORIES['General'];
+
+          tr.innerHTML = `
+            <td class="py-2 px-3 font-mono font-bold text-brand-600 dark:text-brand-400">#${entry.id}</td>
+            <td class="py-2 px-3">
+              <span class="inline-flex items-center space-x-1.5 font-bold text-surface-900 dark:text-white">
+                <span class="w-2 h-2 rounded-full" style="background-color: ${catInfo.hex}"></span>
+                <span>${entry.word}</span>
+              </span>
+            </td>
+            <td class="py-2 px-3 text-center">
+              <span class="px-2 py-0.5 rounded-full bg-surface-100 dark:bg-surface-800 font-mono text-[11px] font-bold border border-surface-200 dark:border-surface-700">${entry.frequency}</span>
+            </td>
+            <td class="py-2 px-3 font-mono text-[11px] text-surface-600 dark:text-surface-300">
+              [${entry.vector.join(', ')}]
+            </td>
+            <td class="py-2 px-3 text-right space-x-1.5">
+              <button class="btn-table-locate text-surface-400 hover:text-brand-600 p-1" title="Locate in 3D" data-word="${entry.word}">
+                <i data-lucide="crosshair" class="w-3.5 h-3.5"></i>
+              </button>
+              <button class="btn-table-edit text-surface-400 hover:text-amber-500 p-1" title="Edit 3D Vector" data-word="${entry.word}">
+                <i data-lucide="sliders" class="w-3.5 h-3.5"></i>
+              </button>
+              <button class="btn-table-delete text-surface-400 hover:text-rose-500 p-1" title="Delete Word" data-word="${entry.word}">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      if (quickTbody) {
+        quickTbody.innerHTML = '';
+        const topWords = [...words].sort((a, b) => b.frequency - a.frequency).slice(0, 5);
+        topWords.forEach(entry => {
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-surface-50 dark:hover:bg-surface-900/60 transition';
+          const catInfo = CATEGORIES[entry.category] || CATEGORIES['General'];
+          tr.innerHTML = `
+            <td class="py-1.5 px-2 font-mono text-brand-600">#${entry.id}</td>
+            <td class="py-1.5 px-2 font-bold text-surface-900 dark:text-white flex items-center space-x-1">
+              <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${catInfo.hex}"></span>
+              <span>${entry.word}</span>
+            </td>
+            <td class="py-1.5 px-2 text-[10px] text-surface-500">${entry.category}</td>
+            <td class="py-1.5 px-2 text-right font-mono font-bold text-surface-900 dark:text-white">${entry.frequency}</td>
+            <td class="py-1.5 px-2 text-right">
+              <button class="btn-table-locate text-brand-600 hover:underline font-bold text-[11px]" data-word="${entry.word}">3D &rarr;</button>
+            </td>
+          `;
+          quickTbody.appendChild(tr);
+        });
+      }
+
+      const totalWords = words.length;
+      document.getElementById('vocab-showing-count').textContent = `Showing ${filtered.length} of ${totalWords} words`;
+      document.getElementById('vocab-stat-total').textContent = totalWords;
+      document.getElementById('quick-vocab-total').textContent = totalWords;
+      document.getElementById('vocab-stat-tokens').textContent = AppState.totalTokensProcessed;
+      
+      const maxFreq = words.reduce((m, w) => Math.max(m, w.frequency), 0);
+      document.getElementById('vocab-stat-max-freq').textContent = maxFreq;
+
+      lucide.createIcons({ root: tbody });
+      if (quickTbody) lucide.createIcons({ root: quickTbody });
+
+      document.querySelectorAll('.btn-table-locate').forEach(btn => {
+        btn.onclick = () => {
+          const w = btn.dataset.word;
+          selectAndInspectWord(w);
+          ThreeScene.flyCameraToNode(w);
+        };
+      });
+
+      document.querySelectorAll('.btn-table-edit').forEach(btn => {
+        btn.onclick = () => openEditVectorModal(btn.dataset.word);
+      });
+
+      document.querySelectorAll('.btn-table-delete').forEach(btn => {
+        btn.onclick = () => deleteWordFromVocab(btn.dataset.word);
+      });
+
+      updateWordDropdowns();
+    }
+
+    /**
+     * Synchronize Dropdowns Across Modules
+     */
+    function updateWordDropdowns() {
+      const words = Object.keys(AppState.vocabulary).sort();
+      const selectors = [
+        document.getElementById('quick-word-a'),
+        document.getElementById('quick-word-b'),
+        document.getElementById('sim-select-word-a'),
+        document.getElementById('sim-select-word-b'),
+        document.getElementById('arith-word-a'),
+        document.getElementById('arith-word-b'),
+        document.getElementById('arith-word-c'),
+        document.getElementById('add-word-anchor')
+      ];
+
+      selectors.forEach(sel => {
+        if (!sel) return;
+        const current = sel.value;
+        const isAnchor = sel.id === 'add-word-anchor';
+        
+        sel.innerHTML = isAnchor ? '<option value="">None (Use manual coordinates)</option>' : '';
+        words.forEach(w => {
+          const opt = document.createElement('option');
+          opt.value = w;
+          opt.textContent = `${w} (#${AppState.vocabulary[w].id})`;
+          sel.appendChild(opt);
+        });
+
+        if (words.includes(current)) {
+          sel.value = current;
+        } else if (!isAnchor && words.length > 0) {
+          sel.value = words[0];
+        }
+      });
+
+      if (words.includes('cat') && words.includes('dog')) {
+        if (document.getElementById('quick-word-a')) document.getElementById('quick-word-a').value = 'cat';
+        if (document.getElementById('quick-word-b')) document.getElementById('quick-word-b').value = 'dog';
+        if (document.getElementById('sim-select-word-a')) document.getElementById('sim-select-word-a').value = 'cat';
+        if (document.getElementById('sim-select-word-b')) document.getElementById('sim-select-word-b').value = 'dog';
+      }
+    }
+
+    /**
+     * Update Similarity Calculator UI
+     */
+    function updateSimilarityCalculatorUI() {
+      const wA = document.getElementById('sim-select-word-a')?.value || document.getElementById('quick-word-a')?.value;
+      const wB = document.getElementById('sim-select-word-b')?.value || document.getElementById('quick-word-b')?.value;
+
+      if (!wA || !wB || !AppState.vocabulary[wA] || !AppState.vocabulary[wB]) return;
+
+      const vA = AppState.vocabulary[wA].vector;
+      const vB = AppState.vocabulary[wB].vector;
+      const normA = calculateVectorNorm(vA);
+      const normB = calculateVectorNorm(vB);
+      const dot = vA[0] * vB[0] + vA[1] * vB[1] + vA[2] * vB[2];
+      const cosSim = calculateCosineSimilarity(vA, vB);
+
+      const rad = Math.acos(Math.max(-1, Math.min(1, cosSim)));
+      const deg = (rad * (180 / Math.PI)).toFixed(1);
+
+      const formattedSim = (cosSim >= 0 ? '+' : '') + cosSim.toFixed(3);
+      if (document.getElementById('sim-score-display')) document.getElementById('sim-score-display').textContent = formattedSim;
+      if (document.getElementById('quick-sim-badge')) document.getElementById('quick-sim-badge').textContent = formattedSim;
+      if (document.getElementById('sim-angular-degrees')) document.getElementById('sim-angular-degrees').textContent = `${deg}°`;
+
+      let label = 'Moderate';
+      let badgeCol = 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan/20';
+      if (cosSim >= 0.7) { label = 'High Similarity'; badgeCol = 'bg-accent-emerald/10 text-accent-emerald border-accent-emerald/20'; }
+      else if (cosSim <= -0.2) { label = 'Opposite Direction'; badgeCol = 'bg-accent-rose/10 text-accent-rose border-accent-rose/20'; }
+      else if (Math.abs(cosSim) < 0.2) { label = 'Orthogonal / Unrelated'; badgeCol = 'bg-surface-200 text-surface-700 border-surface-300'; }
+      
+      const badgeElem = document.getElementById('sim-badge-label');
+      if (badgeElem) {
+        badgeElem.textContent = label;
+        badgeElem.className = `px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${badgeCol}`;
+      }
+
+      const pct = Math.max(0, Math.min(100, ((cosSim + 1) / 2) * 100));
+      if (document.getElementById('sim-meter-fill')) document.getElementById('sim-meter-fill').style.width = `${pct}%`;
+      if (document.getElementById('quick-sim-meter')) document.getElementById('quick-sim-meter').style.width = `${pct}%`;
+
+      if (document.getElementById('sim-math-vec-a')) document.getElementById('sim-math-vec-a').textContent = `[${vA.join(', ')}]`;
+      if (document.getElementById('sim-math-vec-b')) document.getElementById('sim-math-vec-b').textContent = `[${vB.join(', ')}]`;
+      if (document.getElementById('sim-math-norm-a')) document.getElementById('sim-math-norm-a').textContent = normA.toFixed(2);
+      if (document.getElementById('sim-math-norm-b')) document.getElementById('sim-math-norm-b').textContent = normB.toFixed(2);
+      if (document.getElementById('sim-math-dot')) document.getElementById('sim-math-dot').textContent = dot.toFixed(2);
+      if (document.getElementById('sim-math-result')) document.getElementById('sim-math-result').textContent = formattedSim;
+
+      updateTopSimilarList(wA);
+      ThreeScene.highlightComparisonLaser(wA, wB);
+    }
+
+    function updateTopSimilarList(targetWord) {
+      const container = document.getElementById('sim-top-similar-list');
+      if (!container || !AppState.vocabulary[targetWord]) return;
+
+      document.getElementById('sim-top-target-word').textContent = targetWord;
+      const targetVec = AppState.vocabulary[targetWord].vector;
+
+      const scored = Object.keys(AppState.vocabulary)
+        .filter(w => w !== targetWord)
+        .map(w => {
+          const sim = calculateCosineSimilarity(targetVec, AppState.vocabulary[w].vector);
+          return { word: w, sim: sim, id: AppState.vocabulary[w].id };
+        })
+        .sort((a, b) => b.sim - a.sim)
+        .slice(0, 5);
+
+      container.innerHTML = '';
+      if (scored.length === 0) {
+        container.innerHTML = `<span class="text-xs text-surface-400 italic">No other words in vocabulary to rank.</span>`;
+        return;
+      }
+
+      scored.forEach((item, idx) => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between p-2 rounded-xl bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-800 text-xs shadow-sm';
+        const formatted = (item.sim >= 0 ? '+' : '') + item.sim.toFixed(3);
+        
+        row.innerHTML = `
+          <div class="flex items-center space-x-2">
+            <span class="font-mono text-surface-400 text-[10px] font-bold">#${idx + 1}</span>
+            <span class="font-bold text-surface-900 dark:text-white">${item.word}</span>
+            <span class="text-[10px] text-surface-500 font-mono">ID #${item.id}</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span class="font-mono font-bold text-brand-600 dark:text-accent-cyan">${formatted}</span>
+            <button class="btn-fly-to-similar px-2 py-0.5 rounded-lg bg-white dark:bg-surface-800 text-brand-600 text-[10px] font-bold border border-brand-200 shadow-sm" data-word="${item.word}">
+              Fly to 3D
+            </button>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+
+      document.querySelectorAll('.btn-fly-to-similar').forEach(btn => {
+        btn.onclick = () => {
+          const w = btn.dataset.word;
+          selectAndInspectWord(w);
+          ThreeScene.flyCameraToNode(w);
+        };
+      });
+    }
+
+    /**
+     * Semantic Vector Word Math (Analogy Engine)
+     */
+    function executeVectorArithmetic() {
+      const wA = document.getElementById('arith-word-a')?.value;
+      const wB = document.getElementById('arith-word-b')?.value;
+      const wC = document.getElementById('arith-word-c')?.value;
+
+      if (!wA || !wB || !wC || !AppState.vocabulary[wA] || !AppState.vocabulary[wB] || !AppState.vocabulary[wC]) return;
+
+      const vA = AppState.vocabulary[wA].vector;
+      const vB = AppState.vocabulary[wB].vector;
+      const vC = AppState.vocabulary[wC].vector;
+
+      // Target = A - B + C
+      const targetVec = [
+        Math.round((vA[0] - vB[0] + vC[0]) * 100) / 100,
+        Math.round((vA[1] - vB[1] + vC[1]) * 100) / 100,
+        Math.round((vA[2] - vB[2] + vC[2]) * 100) / 100
+      ];
+
+      document.getElementById('arith-target-vector').textContent = `[${targetVec.join(', ')}]`;
+
+      // Find closest words excluding inputs if possible
+      const candidates = Object.keys(AppState.vocabulary)
+        .filter(w => w !== wA && w !== wB && w !== wC)
+        .map(w => {
+          return { word: w, sim: calculateCosineSimilarity(targetVec, AppState.vocabulary[w].vector) };
+        })
+        .sort((a, b) => b.sim - a.sim);
+
+      const best = candidates.length > 0 ? candidates[0] : { word: wA, sim: 1 };
+      document.getElementById('arith-match-word').textContent = best.word;
+      document.getElementById('arith-match-score').textContent = `cos = ${(best.sim >= 0 ? '+' : '') + best.sim.toFixed(3)}`;
+
+      const listContainer = document.getElementById('arith-neighbors-list');
+      listContainer.innerHTML = '';
+
+      candidates.slice(0, 5).forEach((item, idx) => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between p-2 rounded-xl bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-800 text-xs shadow-sm';
+        row.innerHTML = `
+          <div class="flex items-center space-x-2">
+            <span class="font-mono text-surface-400 font-bold">#${idx + 1}</span>
+            <span class="font-bold text-surface-900 dark:text-white">${item.word}</span>
+          </div>
+          <span class="font-mono font-bold text-accent-emerald">${(item.sim >= 0 ? '+' : '') + item.sim.toFixed(3)}</span>
+        `;
+        listContainer.appendChild(row);
+      });
+
+      document.getElementById('btn-arith-fly').onclick = () => {
+        selectAndInspectWord(best.word);
+        ThreeScene.flyCameraToNode(best.word);
+      };
+    }
+
+    /**
+     * Attention & Token Co-occurrence Matrix Heatmap
+     */
+    function renderAttentionHeatmap() {
+      const container = document.getElementById('heatmap-container');
+      if (!container) return;
+
+      const input = document.getElementById('studio-text-input').value;
+      const tokens = cleanAndTokenize(input, { lowercase: true, removePunctuation: true }).slice(0, 8); // Top 8 tokens
+
+      if (tokens.length === 0) {
+        container.innerHTML = `<span class="text-xs text-surface-400 italic">Tokenize text in Studio to generate heatmap.</span>`;
+        return;
+      }
+
+      let tableHtml = `<table class="border-collapse text-xs"><thead><tr><th class="p-1.5"></th>`;
+      tokens.forEach(tok => {
+        tableHtml += `<th class="p-1.5 font-mono text-[10px] text-surface-500 font-bold">${tok}</th>`;
+      });
+      tableHtml += `</tr></thead><tbody>`;
+
+      tokens.forEach((tRow, i) => {
+        tableHtml += `<tr><th class="p-1.5 font-mono text-[10px] text-surface-500 font-bold text-right">${tRow}</th>`;
+        tokens.forEach((tCol, j) => {
+          let score = 0;
+          if (i === j) {
+            score = 1.0;
+          } else if (AppState.vocabulary[tRow] && AppState.vocabulary[tCol]) {
+            score = Math.max(0, calculateCosineSimilarity(AppState.vocabulary[tRow].vector, AppState.vocabulary[tCol].vector));
+          }
+
+          const opacity = Math.min(0.9, 0.15 + score * 0.75);
+          tableHtml += `
+            <td class="p-1">
+              <div class="heatmap-cell w-9 h-8 rounded-lg flex items-center justify-center font-mono font-bold text-[10px] cursor-pointer shadow-sm"
+                   style="background-color: rgba(79, 70, 229, ${opacity}); color: ${score > 0.45 ? '#ffffff' : '#4f46e5'};"
+                   data-t1="${tRow}" data-t2="${tCol}" title="${tRow} &amp; ${tCol} (Affinity: ${score.toFixed(2)})">
+                ${score.toFixed(2)}
+              </div>
+            </td>
+          `;
+        });
+        tableHtml += `</tr>`;
+      });
+      tableHtml += `</tbody></table>`;
+      container.innerHTML = tableHtml;
+
+      container.querySelectorAll('.heatmap-cell').forEach(cell => {
+        cell.addEventListener('mouseenter', () => {
+          const t1 = cell.dataset.t1;
+          const t2 = cell.dataset.t2;
+          if (t1 !== t2) {
+            ThreeScene.highlightComparisonLaser(t1, t2);
+          }
+        });
+      });
+    }
+
+    /**
+     * Sentence Encoder Processing
+     */
+    function executeSentenceEncoder() {
+      const input = document.getElementById('encoder-input-text').value;
+      const autoAdd = document.getElementById('encoder-auto-add-unk').checked;
+      const tokens = cleanAndTokenize(input, { lowercase: true, removePunctuation: true });
+
+      if (tokens.length === 0) {
+        showToast('Please enter text to encode', 'warning');
+        return;
+      }
+
+      const unkTokens = [];
+      const encodedIds = [];
+      const mappingGrid = document.getElementById('encoder-mapping-grid');
+      mappingGrid.innerHTML = '';
+
+      tokens.forEach(tok => {
+        let entry = AppState.vocabulary[tok];
+        
+        if (!entry && autoAdd) {
+          entry = registerWordToVocab(tok, 1);
+        }
+
+        if (entry) {
+          encodedIds.push(entry.id);
+          const card = document.createElement('div');
+          card.className = 'p-2.5 rounded-xl bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-800 flex items-center justify-between text-xs font-mono shadow-sm';
+          card.innerHTML = `
+            <span class="font-sans font-bold text-surface-900 dark:text-white">${tok}</span>
+            <span class="px-2 py-0.5 rounded bg-brand-50 text-brand-600 border border-brand-200 font-bold">#${entry.id}</span>
+          `;
+          mappingGrid.appendChild(card);
+        } else {
+          unkTokens.push(tok);
+          encodedIds.push("UNK");
+
+          const card = document.createElement('div');
+          card.className = 'p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-xs font-mono flex items-center justify-between shadow-sm';
+          card.innerHTML = `
+            <span class="font-sans font-bold text-rose-700">${tok}</span>
+            <span class="px-2 py-0.5 rounded bg-rose-100 text-rose-600 border border-rose-300 font-bold">&lt;UNK&gt;</span>
+          `;
+          mappingGrid.appendChild(card);
+        }
+      });
+
+      const sequenceString = `[${encodedIds.map(x => typeof x === 'number' ? x : `"${x}"`).join(', ')}]`;
+      document.getElementById('encoder-sequence-output').textContent = sequenceString;
+
+      const unkAlert = document.getElementById('encoder-unk-alert');
+      if (unkTokens.length > 0) {
+        unkAlert.classList.remove('hidden');
+        document.getElementById('encoder-unk-list').textContent = `Unknown words: ${[...new Set(unkTokens)].join(', ')}`;
+        
+        document.getElementById('btn-add-all-unk-now').onclick = () => {
+          unkTokens.forEach(t => registerWordToVocab(t, 1));
+          ThreeScene.syncVocabularyWithScene();
+          renderFullVocabTable();
+          executeSentenceEncoder();
+          showToast(`Added ${unkTokens.length} unknown words to vocabulary!`, 'success');
+        };
+      } else {
+        unkAlert.classList.add('hidden');
+      }
+
+      if (autoAdd && unkTokens.length > 0) {
+        ThreeScene.syncVocabularyWithScene();
+        renderFullVocabTable();
+      }
+
+      AudioController.beepSuccess();
+    }
+
+    function executeSentenceDecoder() {
+      const input = document.getElementById('decoder-input-array').value.trim();
+      const outputElem = document.getElementById('decoder-output-text');
+      
+      try {
+        const clean = input.replace(/[\[\]]/g, '');
+        const ids = clean.split(',').map(s => s.trim()).filter(s => s.length > 0);
+
+        if (ids.length === 0) {
+          outputElem.textContent = 'Please enter an array of IDs like [4, 0, 1, 2]';
+          return;
+        }
+
+        const idToWord = {};
+        Object.values(AppState.vocabulary).forEach(entry => {
+          idToWord[entry.id] = entry.word;
+        });
+
+        const decodedWords = ids.map(idStr => {
+          const num = parseInt(idStr, 10);
+          return (!isNaN(num) && idToWord[num]) ? idToWord[num] : '<UNK>';
+        });
+
+        outputElem.textContent = `"${decodedWords.join(' ')}"`;
+        outputElem.classList.remove('italic');
+        AudioController.beepToken();
+      } catch (e) {
+        outputElem.textContent = 'Invalid ID array format. Use comma-separated numbers.';
+      }
+    }
+
+    /**
+     * Analytics & Statistics Chart.js Rendering
+     */
+    let vocabFreqChart = null;
+
+    function renderAnalyticsDashboard() {
+      const words = Object.values(AppState.vocabulary);
+      const totalTokens = AppState.totalTokensProcessed || words.reduce((sum, w) => sum + w.frequency, 0);
+      const uniqueWords = words.length;
+
+      const ttr = totalTokens > 0 ? (uniqueWords / totalTokens).toFixed(3) : '0.000';
+      document.getElementById('metric-ttr').textContent = ttr;
+
+      const totalChars = words.reduce((acc, w) => acc + w.word.length, 0);
+      const avgLen = uniqueWords > 0 ? (totalChars / uniqueWords).toFixed(1) : '0.0';
+      document.getElementById('metric-avg-len').textContent = avgLen;
+
+      const totalNorm = words.reduce((acc, w) => acc + calculateVectorNorm(w.vector), 0);
+      const avgNorm = uniqueWords > 0 ? (totalNorm / uniqueWords).toFixed(2) : '0.00';
+      document.getElementById('metric-avg-norm').textContent = avgNorm;
+
+      const catCounts = {};
+      words.forEach(w => {
+        catCounts[w.category] = (catCounts[w.category] || 0) + 1;
+      });
+
+      const catPills = document.getElementById('analytics-category-pills');
+      if (catPills) {
+        catPills.innerHTML = '';
+        Object.keys(CATEGORIES).forEach(catKey => {
+          const count = catCounts[catKey] || 0;
+          const info = CATEGORIES[catKey];
+          const pill = document.createElement('div');
+          pill.className = 'px-3 py-1 rounded-xl bg-white dark:bg-surface-950 border border-surface-200 dark:border-surface-800 text-xs flex items-center space-x-2 shadow-sm';
+          pill.innerHTML = `
+            <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${info.hex}"></span>
+            <span class="text-surface-700 dark:text-surface-300 font-semibold">${info.label}:</span>
+            <span class="font-mono font-bold text-surface-900 dark:text-white">${count}</span>
+          `;
+          catPills.appendChild(pill);
+        });
+      }
+
+      const topWords = [...words].sort((a, b) => b.frequency - a.frequency).slice(0, 10);
+      const canvas = document.getElementById('chart-vocab-frequency');
+      if (!canvas) return;
+
+      const labels = topWords.map(w => w.word);
+      const data = topWords.map(w => w.frequency);
+
+      if (vocabFreqChart) vocabFreqChart.destroy();
+
+      const ctx = canvas.getContext('2d');
+      vocabFreqChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Frequency',
+            data: data,
+            backgroundColor: 'rgba(79, 70, 229, 0.75)',
+            borderColor: '#4f46e5',
+            borderWidth: 1.5,
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(0, 0, 0, 0.05)' },
+              ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { color: '#334155', font: { family: 'Inter', size: 11, weight: 600 } }
+            }
+          }
+        }
+      });
+    }
+
+    function updateHeaderAndStatCounters() {
+      const vocabCount = Object.keys(AppState.vocabulary).length;
+      document.getElementById('header-vocab-count').textContent = vocabCount;
+      document.getElementById('header-token-count').textContent = AppState.totalTokensProcessed;
+      document.getElementById('header-nodes-count').textContent = vocabCount;
+    }
+
+    function openEditVectorModal(word) {
+      const entry = AppState.vocabulary[word];
+      if (!entry) return;
+
+      document.getElementById('modal-edit-word').textContent = entry.word;
+      document.getElementById('modal-edit-id').textContent = `Token #${entry.id}`;
+      
+      const [x, y, z] = entry.vector;
+      document.getElementById('modal-edit-val-x').value = x;
+      document.getElementById('modal-slider-x').value = x;
+      document.getElementById('modal-edit-val-y').value = y;
+      document.getElementById('modal-slider-y').value = y;
+      document.getElementById('modal-edit-val-z').value = z;
+      document.getElementById('modal-slider-z').value = z;
+
+      document.getElementById('modal-edit-vector').classList.remove('hidden');
+    }
+
+    function closeEditVectorModal() {
+      document.getElementById('modal-edit-vector').classList.add('hidden');
+    }
+
+    function deleteWordFromVocab(word) {
+      if (!AppState.vocabulary[word]) return;
+      if (!confirm(`Are you sure you want to remove "${word}" from the vocabulary and 3D graph?`)) return;
+
+      delete AppState.vocabulary[word];
+      if (AppState.inspectedWord === word) {
+        AppState.inspectedWord = null;
+        document.getElementById('floating-inspector').classList.add('hidden');
+      }
+
+      ThreeScene.syncVocabularyWithScene();
+      renderFullVocabTable();
+      updateSimilarityCalculatorUI();
+      saveStateToStorage();
+      showToast(`Removed "${word}" from vocabulary`, 'warning');
+    }
+
+    /**
+     * Presets Loader
+     */
+    const DATASET_PRESETS = {
+      cats_dogs: {
+        text: "The cat is playing and the dog is playing.",
+        tokens: ["the", "cat", "is", "playing", "and", "the", "dog", "is", "playing"]
+      },
+      ai_ml: {
+        text: "Neural network models learn deep representations using multi head attention and token embeddings.",
+        tokens: ["neural", "network", "models", "learn", "deep", "representations", "using", "multi", "head", "attention", "and", "token", "embeddings"]
+      },
+      nature: {
+        text: "The wild lion and wolf roam through the dense forest river valley.",
+        tokens: ["the", "wild", "lion", "and", "wolf", "roam", "through", "the", "dense", "forest", "river", "valley"]
+      },
+      emotions: {
+        text: "Joy and love bring inner peace while fear and sorrow challenge the human mind.",
+        tokens: ["joy", "and", "love", "bring", "inner", "peace", "while", "fear", "and", "sorrow", "challenge", "the", "human", "mind"]
+      },
+      king_queen: {
+        text: "The king rules the kingdom with the queen while the man and woman watch.",
+        tokens: ["the", "king", "rules", "the", "kingdom", "with", "the", "queen", "while", "the", "man", "and", "woman", "watch"]
+      }
+    };
+
+    function loadPresetDataset(presetKey) {
+      const preset = DATASET_PRESETS[presetKey];
+      if (!preset) return;
+
+      document.getElementById('studio-text-input').value = preset.text;
+      document.getElementById('full-tokenizer-input').value = preset.text;
+      document.getElementById('encoder-input-text').value = preset.text;
+
+      const tokens = cleanAndTokenize(preset.text, {}, AppState.tokenizerMode);
+      processTokensIntoCorpus(tokens);
+
+      ThreeScene.syncVocabularyWithScene();
+      renderTokenChips(tokens, 'studio-token-chips', 'studio-token-stats', 'studio-encoded-sequence');
+      renderTokenChips(tokens, 'full-token-chips', null, 'full-encoded-array-box');
+      renderFullVocabTable();
+      updateSimilarityCalculatorUI();
+      renderAnalyticsDashboard();
+      renderAttentionHeatmap();
+      executeVectorArithmetic();
+
+      showToast(`Loaded preset: ${presetKey}`, 'success');
+      AudioController.beepSuccess();
+    }
+
+    /**
+     * ==========================================
+     * EVENT HANDLERS & INITIALIZATION
+     * ==========================================
+     */
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      ThreeScene.init();
+
+      const hasStored = loadStateFromStorage();
+      if (!hasStored) {
+        loadPresetDataset('cats_dogs');
+      } else {
+        ThreeScene.syncVocabularyWithScene();
+        renderFullVocabTable();
+        const initialText = document.getElementById('studio-text-input').value;
+        const initialTokens = cleanAndTokenize(initialText, {}, AppState.tokenizerMode);
+        renderTokenChips(initialTokens, 'studio-token-chips', 'studio-token-stats', 'studio-encoded-sequence');
+        renderTokenChips(initialTokens, 'full-token-chips', null, 'full-encoded-array-box');
+        updateSimilarityCalculatorUI();
+        renderAnalyticsDashboard();
+        renderAttentionHeatmap();
+        executeVectorArithmetic();
+      }
+
+      // ================= LIGHT / DARK THEME TOGGLE =================
+      const themeBtn = document.getElementById('btn-theme-toggle');
+      themeBtn.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        AppState.settings.theme = isDark ? 'dark' : 'light';
+        saveStateToStorage();
+        ThreeScene.updateSceneBackground();
+        ThreeScene.buildGridAndAxes();
+        ThreeScene.syncVocabularyWithScene();
+        if (vocabFreqChart) renderAnalyticsDashboard();
+        showToast(`Theme switched to ${isDark ? 'Dark Mode' : 'Light Mode'}`, 'info');
+      });
+
+      // ================= TAB NAVIGATION =================
+      const tabButtons = document.querySelectorAll('.nav-tab-btn');
+      tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          tabButtons.forEach(b => {
+            b.classList.remove('active', 'bg-brand-50', 'text-brand-700', 'border', 'border-brand-200', 'dark:bg-brand-500/15', 'dark:text-brand-400', 'dark:border-brand-500/30');
+            b.classList.add('text-surface-500');
+          });
+          btn.classList.add('active', 'bg-brand-50', 'text-brand-700', 'border', 'border-brand-200', 'dark:bg-brand-500/15', 'dark:text-brand-400', 'dark:border-brand-500/30');
+          btn.classList.remove('text-surface-500');
+
+          const targetTab = btn.dataset.tab;
+          document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+          const activePanel = document.getElementById(`panel-${targetTab}`);
+          if (activePanel) activePanel.classList.remove('hidden');
+
+          if (targetTab === 'tab-analytics') {
+            setTimeout(() => renderAnalyticsDashboard(), 50);
+          } else if (targetTab === 'tab-vocab') {
+            renderFullVocabTable();
+          } else if (targetTab === 'tab-heatmap') {
+            renderAttentionHeatmap();
+          } else if (targetTab === 'tab-arithmetic') {
+            executeVectorArithmetic();
+          }
+          AudioController.playTone(600, 'sine', 0.04, 0.02);
+        });
+      });
+
+      document.getElementById('btn-show-full-similarity')?.addEventListener('click', () => {
+        document.querySelector('[data-tab="tab-similarity"]').click();
+      });
+      document.getElementById('btn-view-all-vocab')?.addEventListener('click', () => {
+        document.querySelector('[data-tab="tab-vocab"]').click();
+      });
+
+      // ================= TOKENIZER MODES TOGGLE =================
+      const tokModeBtns = document.querySelectorAll('.tok-mode-btn');
+      tokModeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          tokModeBtns.forEach(b => {
+            b.classList.remove('active', 'bg-white', 'text-brand-600', 'dark:bg-surface-900', 'dark:text-brand-400', 'shadow-sm');
+            b.classList.add('text-surface-600');
+          });
+          btn.classList.add('active', 'bg-white', 'text-brand-600', 'dark:bg-surface-900', 'dark:text-brand-400', 'shadow-sm');
+          btn.classList.remove('text-surface-600');
+
+          AppState.tokenizerMode = btn.dataset.mode;
+          document.getElementById('full-mode-indicator').textContent = `Mode: ${btn.textContent.trim()}`;
+          document.getElementById('btn-full-tokenize').click();
+        });
+      });
+
+      // ================= TOKENIZER INPUT EVENTS =================
+      const studioInput = document.getElementById('studio-text-input');
+      const studioActionBtn = document.getElementById('btn-tokenize-action');
+
+      const triggerStudioTokenize = () => {
+        const text = studioInput.value;
+        const tokens = cleanAndTokenize(text, {
+          lowercase: document.getElementById('chk-lowercase').checked,
+          removePunctuation: document.getElementById('chk-remove-punct').checked
+        }, AppState.tokenizerMode);
+
+        processTokensIntoCorpus(tokens);
+        ThreeScene.syncVocabularyWithScene();
+        renderTokenChips(tokens, 'studio-token-chips', 'studio-token-stats', 'studio-encoded-sequence');
+        renderFullVocabTable();
+        updateSimilarityCalculatorUI();
+        renderAttentionHeatmap();
+        AudioController.beepToken();
+      };
+
+      studioActionBtn.addEventListener('click', triggerStudioTokenize);
+      studioInput.addEventListener('input', () => {
+        if (AppState.settings.realtime) triggerStudioTokenize();
+      });
+
+      const fullInput = document.getElementById('full-tokenizer-input');
+      const fullTokenizeBtn = document.getElementById('btn-full-tokenize');
+
+      fullTokenizeBtn.addEventListener('click', () => {
+        const text = fullInput.value;
+        const tokens = cleanAndTokenize(text, {
+          lowercase: document.getElementById('full-chk-lowercase').checked,
+          removePunctuation: document.getElementById('full-chk-remove-punct').checked
+        }, AppState.tokenizerMode);
+
+        processTokensIntoCorpus(tokens);
+        ThreeScene.syncVocabularyWithScene();
+        renderTokenChips(tokens, 'full-token-chips', null, 'full-encoded-array-box');
+        renderFullVocabTable();
+        updateSimilarityCalculatorUI();
+
+        const tableBody = document.getElementById('full-token-table-body');
+        tableBody.innerHTML = '';
+        tokens.forEach((tok, idx) => {
+          const entry = AppState.vocabulary[tok];
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-surface-50 dark:hover:bg-surface-900 transition';
+          tr.innerHTML = `
+            <td class="py-2 px-3 font-mono text-surface-400">#${idx}</td>
+            <td class="py-2 px-3 font-bold text-surface-900 dark:text-white">${tok}</td>
+            <td class="py-2 px-3 font-mono font-bold text-brand-600">#${entry ? entry.id : '-'}</td>
+            <td class="py-2 px-3 text-accent-emerald font-semibold font-mono text-[11px]">${AppState.tokenizerMode.toUpperCase()}</td>
+          `;
+          tableBody.appendChild(tr);
+        });
+
+        AudioController.beepSuccess();
+      });
+
+      document.querySelectorAll('.sample-sentence-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          fullInput.value = btn.dataset.text;
+          fullTokenizeBtn.click();
+        });
+      });
+
+      // ================= COPY BUTTONS =================
+      const setupCopyButton = (btnId, textElemId) => {
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+          const text = document.getElementById(textElemId).textContent.trim();
+          navigator.clipboard.writeText(text).then(() => {
+            showToast('Copied to clipboard!', 'success');
+            AudioController.beepSuccess();
+          });
+        });
+      };
+      setupCopyButton('btn-copy-studio-encoded', 'studio-encoded-sequence');
+      setupCopyButton('btn-copy-full-encoded', 'full-encoded-array-box');
+      setupCopyButton('btn-copy-encoded-seq', 'encoder-sequence-output');
+
+      // ================= ENCODER / DECODER =================
+      document.getElementById('btn-run-encoder').addEventListener('click', executeSentenceEncoder);
+      document.getElementById('btn-run-decoder').addEventListener('click', executeSentenceDecoder);
+
+      // ================= SIMILARITY CALCULATOR =================
+      const simSelectA = document.getElementById('sim-select-word-a');
+      const simSelectB = document.getElementById('sim-select-word-b');
+      const quickSelectA = document.getElementById('quick-word-a');
+      const quickSelectB = document.getElementById('quick-word-b');
+
+      const onSimPairChange = (wA, wB) => {
+        if (simSelectA) simSelectA.value = wA;
+        if (quickSelectA) quickSelectA.value = wA;
+        if (simSelectB) simSelectB.value = wB;
+        if (quickSelectB) quickSelectB.value = wB;
+        updateSimilarityCalculatorUI();
+      };
+
+      if (simSelectA && simSelectB) {
+        simSelectA.addEventListener('change', () => onSimPairChange(simSelectA.value, simSelectB.value));
+        simSelectB.addEventListener('change', () => onSimPairChange(simSelectA.value, simSelectB.value));
+      }
+      if (quickSelectA && quickSelectB) {
+        quickSelectA.addEventListener('change', () => onSimPairChange(quickSelectA.value, quickSelectB.value));
+        quickSelectB.addEventListener('change', () => onSimPairChange(quickSelectA.value, quickSelectB.value));
+      }
+
+      document.getElementById('btn-highlight-sim-in-3d').addEventListener('click', () => {
+        const wA = simSelectA.value;
+        const wB = simSelectB.value;
+        ThreeScene.highlightComparisonLaser(wA, wB);
+        ThreeScene.flyCameraToNode(wA);
+        showToast(`Highlighted 3D vector connection for "${wA}" & "${wB}"`, 'info');
+      });
+
+      // ================= VECTOR WORD MATH ANALOGY =================
+      ['arith-word-a', 'arith-word-b', 'arith-word-c'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', executeVectorArithmetic);
+      });
+
+      document.querySelectorAll('.analogy-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const a = btn.dataset.a;
+          const b = btn.dataset.b;
+          const c = btn.dataset.c;
+          
+          // Ensure words exist
+          [a, b, c].forEach(w => registerWordToVocab(w, 1));
+          ThreeScene.syncVocabularyWithScene();
+          renderFullVocabTable();
+
+          document.getElementById('arith-word-a').value = a;
+          document.getElementById('arith-word-b').value = b;
+          document.getElementById('arith-word-c').value = c;
+          executeVectorArithmetic();
+        });
+      });
+
+      // ================= ADD WORD TO 3D =================
+      const addWordInput = document.getElementById('add-word-input');
+      const addWordCategory = document.getElementById('add-word-category');
+      const sliderX = document.getElementById('add-coord-x');
+      const sliderY = document.getElementById('add-coord-y');
+      const sliderZ = document.getElementById('add-coord-z');
+
+      const syncSliderLabels = () => {
+        document.getElementById('slider-x-val').textContent = parseFloat(sliderX.value).toFixed(2);
+        document.getElementById('slider-y-val').textContent = parseFloat(sliderY.value).toFixed(2);
+        document.getElementById('slider-z-val').textContent = parseFloat(sliderZ.value).toFixed(2);
+      };
+      [sliderX, sliderY, sliderZ].forEach(s => s.addEventListener('input', syncSliderLabels));
+
+      document.getElementById('btn-generate-rand-coords').addEventListener('click', () => {
+        const word = addWordInput.value.trim() || 'concept';
+        const cat = addWordCategory.value;
+        const [x, y, z] = generateDeterministicCoordinates(word, cat);
+        sliderX.value = x;
+        sliderY.value = y;
+        sliderZ.value = z;
+        syncSliderLabels();
+        AudioController.playTone(700, 'sine', 0.05, 0.03);
+      });
+
+      document.getElementById('btn-quick-add-word').addEventListener('click', () => {
+        const word = document.getElementById('quick-new-word').value.trim();
+        const cat = document.getElementById('quick-new-category').value;
+        if (!word) {
+          showToast('Please type a word to add', 'warning');
+          return;
+        }
+        if (AppState.vocabulary[word.toLowerCase()]) {
+          showToast(`"${word}" is already in vocabulary!`, 'warning');
+          return;
+        }
+
+        registerWordToVocab(word, 1, cat);
+        ThreeScene.syncVocabularyWithScene();
+        renderFullVocabTable();
+        updateSimilarityCalculatorUI();
+        ThreeScene.flyCameraToNode(word.toLowerCase());
+        document.getElementById('quick-new-word').value = '';
+        showToast(`Injected "${word}" into 3D Space!`, 'success');
+        AudioController.beepSuccess();
+      });
+
+      document.getElementById('btn-submit-add-word').addEventListener('click', () => {
+        const word = addWordInput.value.trim();
+        const errElem = document.getElementById('add-word-error');
+        errElem.classList.add('hidden');
+
+        if (!word) {
+          errElem.textContent = 'Word cannot be blank.';
+          errElem.classList.remove('hidden');
+          return;
+        }
+
+        if (AppState.vocabulary[word.toLowerCase()]) {
+          errElem.textContent = `"${word}" already exists in vocabulary.`;
+          errElem.classList.remove('hidden');
+          return;
+        }
+
+        const cat = addWordCategory.value;
+        const freq = parseInt(document.getElementById('add-word-freq').value, 10) || 1;
+        const anchor = document.getElementById('add-word-anchor').value;
+
+        let coords;
+        if (anchor && AppState.vocabulary[anchor]) {
+          const [ax, ay, az] = AppState.vocabulary[anchor].vector;
+          coords = [
+            Math.round((ax + (Math.random() - 0.5) * 1.5) * 100) / 100,
+            Math.round((ay + (Math.random() - 0.5) * 1.5) * 100) / 100,
+            Math.round((az + (Math.random() - 0.5) * 1.5) * 100) / 100
+          ];
+        } else {
+          coords = [parseFloat(sliderX.value), parseFloat(sliderY.value), parseFloat(sliderZ.value)];
+        }
+
+        registerWordToVocab(word, freq, cat, coords);
+        ThreeScene.syncVocabularyWithScene();
+        renderFullVocabTable();
+        updateSimilarityCalculatorUI();
+        ThreeScene.flyCameraToNode(word.toLowerCase());
+
+        addWordInput.value = '';
+        showToast(`Added "${word}" to vocabulary with Token ID #${AppState.vocabulary[word.toLowerCase()].id}!`, 'success');
+        AudioController.beepSuccess();
+      });
+
+      // ================= VOCABULARY SEARCH & PURGE =================
+      ['vocab-search-input', 'vocab-category-filter', 'vocab-sort-by'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', renderFullVocabTable);
+      });
+
+      document.getElementById('btn-purge-vocab').addEventListener('click', () => {
+        if (!confirm('Clear entire vocabulary repository?')) return;
+        AppState.vocabulary = {};
+        AppState.nextId = 0;
+        AppState.totalTokensProcessed = 0;
+        AppState.cooccurrences = {};
+        ThreeScene.syncVocabularyWithScene();
+        renderFullVocabTable();
+        updateSimilarityCalculatorUI();
+        saveStateToStorage();
+        showToast('Vocabulary completely reset.', 'warning');
+      });
+
+      document.getElementById('btn-reset-all').addEventListener('click', () => {
+        if (confirm('Reset to initial "Cat & Dog" prompt state?')) {
+          localStorage.removeItem(STORAGE_KEY);
+          AppState.vocabulary = {};
+          AppState.nextId = 0;
+          AppState.totalTokensProcessed = 0;
+          AppState.cooccurrences = {};
+          loadPresetDataset('cats_dogs');
+          showToast('Reset to default example!', 'success');
+        }
+      });
+
+      document.getElementById('preset-selector').addEventListener('change', (e) => {
+        loadPresetDataset(e.target.value);
+        e.target.value = '';
+      });
+
+      // Export / Import
+      document.getElementById('btn-export-vocab').addEventListener('click', () => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(AppState.vocabulary, null, 2));
+        const dlAnchor = document.createElement('a');
+        dlAnchor.setAttribute("href", dataStr);
+        dlAnchor.setAttribute("download", "lexispace_vocabulary.json");
+        document.body.appendChild(dlAnchor);
+        dlAnchor.click();
+        dlAnchor.remove();
+        showToast('Vocabulary JSON downloaded!', 'success');
+      });
+
+      const fileInput = document.getElementById('vocab-file-input');
+      document.getElementById('btn-import-vocab-trigger').addEventListener('click', () => fileInput.click());
+
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const imported = JSON.parse(event.target.result);
+            if (imported && typeof imported === 'object') {
+              AppState.vocabulary = imported;
+              AppState.nextId = Math.max(...Object.values(imported).map(w => w.id)) + 1;
+              ThreeScene.syncVocabularyWithScene();
+              renderFullVocabTable();
+              updateSimilarityCalculatorUI();
+              saveStateToStorage();
+              showToast('Vocabulary successfully imported!', 'success');
+            }
+          } catch (err) {
+            showToast('Failed to parse vocabulary JSON file', 'error');
+          }
+        };
+        reader.readAsText(file);
+      });
+
+      // ================= 3D VIEWPORT TOOLBAR CONTROLS =================
+      document.getElementById('btn-cam-reset').addEventListener('click', () => {
+        ThreeScene.camera.position.set(15, 13, 19);
+        ThreeScene.controls.target.set(0, 0, 0);
+        ThreeScene.camera.up.set(0, 1, 0);
+        ThreeScene.controls.update();
+        AudioController.playTone(400, 'sine', 0.05, 0.02);
+      });
+
+      // Fix Top View Gimbal Singularity Bug
+      document.getElementById('btn-cam-top').addEventListener('click', () => {
+        ThreeScene.camera.position.set(0.001, 26, 0.001);
+        ThreeScene.controls.target.set(0, 0, 0);
+        ThreeScene.camera.up.set(0, 0, -1);
+        ThreeScene.controls.update();
+      });
+
+      document.getElementById('btn-cam-front').addEventListener('click', () => {
+        ThreeScene.camera.position.set(0, 0, 26);
+        ThreeScene.controls.target.set(0, 0, 0);
+        ThreeScene.camera.up.set(0, 1, 0);
+        ThreeScene.controls.update();
+      });
+
+      document.getElementById('btn-cam-iso').addEventListener('click', () => {
+        ThreeScene.camera.position.set(16, 16, 16);
+        ThreeScene.controls.target.set(0, 0, 0);
+        ThreeScene.camera.up.set(0, 1, 0);
+        ThreeScene.controls.update();
+      });
+
+      // 2D PCA Ground Projection Mode Toggle
+      const btnPca = document.getElementById('btn-toggle-pca');
+      btnPca.addEventListener('click', () => {
+        AppState.projectionMode = AppState.projectionMode === '3d' ? 'pca2d' : '3d';
+        document.getElementById('pca-status-text').textContent = AppState.projectionMode === 'pca2d' ? '2D PCA' : '3D Space';
+        
+        // Animate positions to 2D ground plane (Y=0) or back to 3D
+        Object.keys(ThreeScene.nodeMeshes).forEach(w => {
+          const mesh = ThreeScene.nodeMeshes[w];
+          const entry = AppState.vocabulary[w];
+          if (mesh && entry) {
+            const targetY = AppState.projectionMode === 'pca2d' ? 0 : entry.vector[1];
+            mesh.position.y = targetY;
+            if (ThreeScene.labelSprites[w]) {
+              ThreeScene.labelSprites[w].position.y = targetY + 0.65;
+            }
+          }
+        });
+        ThreeScene.updateConnectionLines();
+        showToast(AppState.projectionMode === 'pca2d' ? 'Projected to 2D PCA Ground Plane' : 'Restored 3D Spatial Vector Space', 'info');
+      });
+
+      // Viewport Search Spotlight
+      const vpSearch = document.getElementById('viewport-search-input');
+      vpSearch.addEventListener('input', () => {
+        const query = vpSearch.value.trim().toLowerCase();
+        Object.keys(ThreeScene.nodeMeshes).forEach(w => {
+          const mesh = ThreeScene.nodeMeshes[w];
+          const sprite = ThreeScene.labelSprites[w];
+          if (!mesh) return;
+
+          if (!query || w.includes(query)) {
+            mesh.material.opacity = 1;
+            mesh.material.transparent = false;
+            if (sprite) sprite.material.opacity = 0.98;
+          } else {
+            mesh.material.opacity = 0.15;
+            mesh.material.transparent = true;
+            if (sprite) sprite.material.opacity = 0.1;
+          }
+        });
+
+        if (query && AppState.vocabulary[query]) {
+          ThreeScene.flyCameraToNode(query);
+          selectAndInspectWord(query);
+        }
+      });
+
+      document.getElementById('btn-toggle-labels').addEventListener('click', () => {
+        AppState.settings.showLabels = !AppState.settings.showLabels;
+        Object.values(ThreeScene.labelSprites).forEach(sprite => {
+          sprite.visible = AppState.settings.showLabels;
+        });
+        showToast(`3D Labels: ${AppState.settings.showLabels ? 'Shown' : 'Hidden'}`, 'info');
+      });
+
+      document.getElementById('btn-toggle-grid').addEventListener('click', () => {
+        AppState.settings.showGrid = !AppState.settings.showGrid;
+        if (ThreeScene.gridHelper) ThreeScene.gridHelper.visible = AppState.settings.showGrid;
+        if (ThreeScene.axesGroup) ThreeScene.axesGroup.visible = AppState.settings.showGrid;
+        showToast(`Coordinate Grid: ${AppState.settings.showGrid ? 'Shown' : 'Hidden'}`, 'info');
+      });
+
+      document.getElementById('btn-toggle-rotate').addEventListener('click', () => {
+        AppState.settings.autoRotate = !AppState.settings.autoRotate;
+        showToast(`Auto-Rotate: ${AppState.settings.autoRotate ? 'Enabled' : 'Disabled'}`, 'info');
+      });
+
+      // Toggle Direct Node Dragging in 3D
+      const btnToggleDrag = document.getElementById('btn-toggle-drag');
+      btnToggleDrag.addEventListener('click', () => {
+        AppState.settings.dragMode = !AppState.settings.dragMode;
+        document.getElementById('drag-status-text').textContent = `Drag: ${AppState.settings.dragMode ? 'ON' : 'OFF'}`;
+        btnToggleDrag.classList.toggle('text-accent-amber', AppState.settings.dragMode);
+        document.getElementById('three-container').classList.toggle('drag-node-active', AppState.settings.dragMode);
+        showToast(AppState.settings.dragMode ? 'Drag Mode ON: Click & drag any word sphere in 3D!' : 'Drag Mode OFF: Orbit rotation restored.', 'info');
+      });
+
+      // High-Res PNG Snapshot
+      document.getElementById('btn-snapshot-3d').addEventListener('click', () => {
+        ThreeScene.renderer.render(ThreeScene.scene, ThreeScene.camera);
+        const dataURL = ThreeScene.renderer.domElement.toDataURL('image/png');
+        const dlAnchor = document.createElement('a');
+        dlAnchor.href = dataURL;
+        dlAnchor.download = 'lexispace_3d_graph.png';
+        dlAnchor.click();
+        dlAnchor.remove();
+        showToast('3D Graph Snapshot PNG downloaded!', 'success');
+      });
+
+      document.getElementById('btn-toggle-fullscreen').addEventListener('click', () => {
+        const container = document.getElementById('three-container');
+        if (!document.fullscreenElement) {
+          container.requestFullscreen?.();
+        } else {
+          document.exitFullscreen?.();
+        }
+      });
+
+      const simSlider = document.getElementById('slider-sim-threshold');
+      simSlider.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        AppState.settings.simThreshold = val;
+        document.getElementById('label-sim-threshold').textContent = `≥ ${val.toFixed(2)}`;
+        ThreeScene.updateConnectionLines();
+      });
+
+      // Floating Inspector
+      document.getElementById('btn-close-inspector').addEventListener('click', () => {
+        document.getElementById('floating-inspector').classList.add('hidden');
+        if (ThreeScene.haloRing) ThreeScene.haloRing.visible = false;
+      });
+
+      document.getElementById('btn-inspect-calc-sim').addEventListener('click', () => {
+        if (!AppState.inspectedWord) return;
+        document.querySelector('[data-tab="tab-similarity"]').click();
+        const selA = document.getElementById('sim-select-word-a');
+        if (selA) {
+          selA.value = AppState.inspectedWord;
+          updateSimilarityCalculatorUI();
+        }
+      });
+
+      document.getElementById('btn-inspect-edit-vector').addEventListener('click', () => {
+        if (AppState.inspectedWord) openEditVectorModal(AppState.inspectedWord);
+      });
+
+      document.getElementById('btn-inspect-delete-word').addEventListener('click', () => {
+        if (AppState.inspectedWord) deleteWordFromVocab(AppState.inspectedWord);
+      });
+
+      // Modal Actions
+      document.getElementById('btn-close-edit-modal').addEventListener('click', closeEditVectorModal);
+      document.getElementById('btn-cancel-edit-vector').addEventListener('click', closeEditVectorModal);
+
+      const bindModalCoord = (sliderId, inputId) => {
+        const slider = document.getElementById(sliderId);
+        const input = document.getElementById(inputId);
+        slider.addEventListener('input', () => input.value = slider.value);
+        input.addEventListener('input', () => slider.value = input.value);
+      };
+      bindModalCoord('modal-slider-x', 'modal-edit-val-x');
+      bindModalCoord('modal-slider-y', 'modal-edit-val-y');
+      bindModalCoord('modal-slider-z', 'modal-edit-val-z');
+
+      document.getElementById('btn-save-edit-vector').addEventListener('click', () => {
+        const word = document.getElementById('modal-edit-word').textContent;
+        const entry = AppState.vocabulary[word];
+        if (!entry) return;
+
+        const nx = parseFloat(document.getElementById('modal-edit-val-x').value) || 0;
+        const ny = parseFloat(document.getElementById('modal-edit-val-y').value) || 0;
+        const nz = parseFloat(document.getElementById('modal-edit-val-z').value) || 0;
+
+        entry.vector = [Math.round(nx * 100) / 100, Math.round(ny * 100) / 100, Math.round(nz * 100) / 100];
+        ThreeScene.syncVocabularyWithScene();
+        renderFullVocabTable();
+        updateSimilarityCalculatorUI();
+        if (AppState.inspectedWord === word) updateInspectorUI(word);
+        saveStateToStorage();
+        closeEditVectorModal();
+        showToast(`Updated 3D coordinates for "${word}"`, 'success');
+      });
+
+      // Guide Modal
+      const guideModal = document.getElementById('modal-nlp-guide');
+      document.getElementById('btn-open-guide').addEventListener('click', () => guideModal.classList.remove('hidden'));
+      document.getElementById('btn-close-guide').addEventListener('click', () => guideModal.classList.add('hidden'));
+      document.getElementById('btn-close-guide-footer').addEventListener('click', () => guideModal.classList.add('hidden'));
+
+      // Sound Toggle
+      const soundBtn = document.getElementById('btn-sound-toggle');
+      const soundIcon = document.getElementById('sound-icon');
+      soundBtn.addEventListener('click', () => {
+        AppState.settings.soundEnabled = !AppState.settings.soundEnabled;
+        if (AppState.settings.soundEnabled) {
+          soundIcon.setAttribute('data-lucide', 'volume-2');
+          soundIcon.classList.remove('text-surface-400');
+          soundIcon.classList.add('text-brand-600');
+          showToast('Sound synthesizers enabled', 'info');
+          AudioController.beepSuccess();
+        } else {
+          soundIcon.setAttribute('data-lucide', 'volume-x');
+          soundIcon.classList.remove('text-brand-600');
+          soundIcon.classList.add('text-surface-400');
+          showToast('Sound feedback muted', 'info');
+        }
+        lucide.createIcons({ root: soundBtn });
+      });
+
+    });
+  </script>
+</body>
+</html>
